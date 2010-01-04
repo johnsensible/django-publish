@@ -20,7 +20,10 @@ class Publishable(models.Model):
     public = models.OneToOneField('self', related_name='draft', null=True, editable=False)
     
     class Meta:
-        abstract = True 
+        abstract = True
+
+    class PublishMeta:
+        publish_exclude_fields = ['id', 'is_public', 'publish_state', 'public']
 
     def save(self, mark_changed=True, *arg, **kw):
         if not self.is_public and mark_changed:
@@ -28,7 +31,28 @@ class Publishable(models.Model):
         super(Publishable, self).save(*arg, **kw)
 
     def publish(self):
-        pass
+        if self.is_public:
+            raise ValueError("Cannot publish public model - publish should be called from draft model")
+        
+        public_version = self.public
+        if not public_version:
+            public_version = self.__class__(is_public=True)
+        
+        # copy over regular fields
+        for field in self._meta.fields:
+            if field.name in self.PublishMeta.publish_exclude_fields:
+                continue
+            
+            value = getattr(self, field.name)
+            setattr(public_version, field.name, value)
+        
+        # save the public version and update
+        # state so we know everything is up-to-date
+        public_version.save()
+        self.public = public_version
+        self.publish_state = Publishable.PUBLISH_DEFAULT
+        self.save(mark_changed=False)
+            
 
 if getattr(settings, 'TESTING_PUBLISH', False):
     # classes to test that publishing etc work ok
