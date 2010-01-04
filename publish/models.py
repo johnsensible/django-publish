@@ -8,6 +8,20 @@ from django.conf import settings
 # but we want this to be a reusable/standalone app and have a few different needs
 #
 
+class PublishableManager(models.Manager):
+    
+    def changed(self):
+        '''all draft objects that have not been published yet'''
+        return self.get_query_set().filter(is_public=False, publish_state=Publishable.PUBLISH_CHANGED)
+    
+    def draft(self):
+        '''all draft objects'''
+        return self.get_query_set().filter(is_public=False)
+    
+    def published(self):
+        '''all public/published objects'''
+        return self.get_query_set().filter(is_public=True)
+
 class Publishable(models.Model):
     PUBLISH_DEFAULT = 0
     PUBLISH_CHANGED = 1
@@ -24,6 +38,8 @@ class Publishable(models.Model):
 
     class PublishMeta:
         publish_exclude_fields = ['id', 'is_public', 'publish_state', 'public']
+
+    objects = PublishableManager()
 
     def save(self, mark_changed=True, *arg, **kw):
         if not self.is_public and mark_changed:
@@ -68,3 +84,6 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         help_text=_("Example: 'flatpages/contact_page.html'. If this isn't provided, the system will use 'flatpages/default.html'."))
         registration_required = models.BooleanField(_('registration required'), help_text=_("If this is checked, only logged-in users will be able to view the page."))
         sites = models.ManyToManyField(Site)
+
+        class Meta:
+            ordering = ['url']

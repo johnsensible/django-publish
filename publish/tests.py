@@ -62,3 +62,49 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnlessEqual(public.title, self.flat_page.title)
             self.failUnlessEqual(Publishable.PUBLISH_DEFAULT, self.flat_page.publish_state)
 
+    class TestPublishableManager(TransactionTestCase):
+        
+        def setUp(self):
+            super(TransactionTestCase, self).setUp()
+            self.flat_page1 = FlatPage.objects.create(url='/url1/', title='title 1')
+            self.flat_page2 = FlatPage.objects.create(url='/url2/', title='title 2')
+        
+        def test_all(self): 
+            self.failUnlessEqual([self.flat_page1, self.flat_page2], list(FlatPage.objects.all()))
+            
+            # publishing will produce extra copies
+            self.flat_page1.publish()
+            self.failUnlessEqual(3, FlatPage.objects.count())
+            
+            self.flat_page2.publish()
+            self.failUnlessEqual(4, FlatPage.objects.count())
+
+
+        def test_changed(self):
+            self.failUnlessEqual([self.flat_page1, self.flat_page2], list(FlatPage.objects.changed()))
+            
+            self.flat_page1.publish()
+            self.failUnlessEqual([self.flat_page2], list(FlatPage.objects.changed()))
+            
+            self.flat_page2.publish()
+            self.failUnlessEqual([], list(FlatPage.objects.changed()))
+        
+        def test_draft(self):
+            # draft should stay the same pretty much always
+            self.failUnlessEqual([self.flat_page1, self.flat_page2], list(FlatPage.objects.draft()))
+            
+            self.flat_page1.publish()
+            self.failUnlessEqual([self.flat_page1, self.flat_page2], list(FlatPage.objects.draft()))
+            
+            self.flat_page2.publish()
+            self.failUnlessEqual([self.flat_page1, self.flat_page2], list(FlatPage.objects.draft()))
+        
+        def test_published(self):
+            self.failUnlessEqual([], list(FlatPage.objects.published()))
+            
+            self.flat_page1.publish()
+            self.failUnlessEqual([self.flat_page1.public], list(FlatPage.objects.published()))
+            
+            self.flat_page2.publish()
+            self.failUnlessEqual([self.flat_page1.public, self.flat_page2.public], list(FlatPage.objects.published()))
+
