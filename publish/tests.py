@@ -37,6 +37,13 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             except ValueError:
                 pass
 
+        def test_publish_check_has_id(self):
+            try:
+                self.flat_page.publish()
+                self.fail("Should not be able to publish unsaved models")
+            except AssertionError:
+                pass
+        
         def test_publish_simple_fields(self):
             self.flat_page.save()
             self.failUnlessEqual(Publishable.PUBLISH_CHANGED, self.flat_page.publish_state)
@@ -67,6 +74,22 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnlessEqual(public, self.flat_page.public)
             self.failUnlessEqual(public.title, self.flat_page.title)
             self.failUnlessEqual(Publishable.PUBLISH_DEFAULT, self.flat_page.publish_state)
+
+        def test_delete_after_publish(self):
+            self.flat_page.save()
+            self.flat_page.publish()
+            public = self.flat_page.public
+            self.failUnless(public)
+            
+            self.flat_page.delete()
+            self.failUnlessEqual(Publishable.PUBLISH_DELETE, public.publish_state)
+
+            self.failUnlessEqual([public], list(FlatPage.objects.all()))
+
+        def test_delete_before_publish(self):
+            self.flat_page.save()
+            self.flat_page.delete()
+            self.failUnlessEqual([], list(FlatPage.objects.all()))
  
 
     class TestPublishableManager(TransactionTestCase):
