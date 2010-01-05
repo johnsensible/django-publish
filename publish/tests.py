@@ -138,6 +138,17 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.flat_page2.publish()
             self.failUnlessEqual([self.flat_page1.public, self.flat_page2.public], list(FlatPage.objects.published()))
 
+        def test_deleted(self):
+            self.failUnlessEqual([], list(FlatPage.objects.deleted()))
+            
+            self.flat_page1.publish()
+            self.failUnlessEqual([], list(FlatPage.objects.deleted()))
+
+            public = self.flat_page1.public
+            self.flat_page1.delete()
+            self.failUnlessEqual([public], list(FlatPage.objects.deleted()))
+
+
     class TestPublishableManyToMany(TransactionTestCase):
         
         def setUp(self):
