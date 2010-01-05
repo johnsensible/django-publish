@@ -41,8 +41,16 @@ class Publishable(models.Model):
     class Meta:
         abstract = True
 
-    class PublishMeta:
+    class PublishMeta(object):
         publish_exclude_fields = ['id', 'is_public', 'publish_state', 'public']
+
+        @classmethod
+        def excluded_fields(cls):
+            publish_exclude_fields = []
+            for clazz in cls.__mro__:
+                exclude = getattr(clazz, 'publish_exclude_fields', [])
+                publish_exclude_fields.extend(exclude)
+            return publish_exclude_fields
 
     objects = PublishableManager()
 
@@ -79,7 +87,7 @@ class Publishable(models.Model):
         if self.publish_state == Publishable.PUBLISH_CHANGED:
             # copy over regular fields
             for field in self._meta.fields:
-                if field.name in self.PublishMeta.publish_exclude_fields:
+                if field.name in self.PublishMeta.excluded_fields():
                     continue
                 
                 value = getattr(self, field.name)
@@ -101,7 +109,7 @@ class Publishable(models.Model):
         # copy over many-to-many fields
         for field in self._meta.many_to_many:
             name = field.name
-            if name in self.PublishMeta.publish_exclude_fields:
+            if name in self.PublishMeta.excluded_fields():
                 continue
             
             m2m_manager = getattr(self, name)
@@ -144,6 +152,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         name = models.CharField(max_length=100)
         profile = models.TextField(blank=True)
 
+    class ChangeLog(models.Model):
+        changed = models.DateTimeField(db_index=True, auto_now_add=True)
+        message = models.CharField(max_length=200)
+
     class Page(Publishable):
         slug = models.CharField(max_length=100, db_index=True)
         title = models.CharField(max_length=200)
@@ -152,9 +164,13 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         parent = models.ForeignKey('self', blank=True, null=True)
         
         authors = models.ManyToManyField(Author)
+        log = models.ManyToManyField(ChangeLog)        
 
         class Meta:
             ordering = ['slug']
+
+        class PublishMeta(Publishable.PublishMeta):
+            publish_exclude_fields = ['log']
 
         def get_absolute_url(self):
             if not self.parent:
