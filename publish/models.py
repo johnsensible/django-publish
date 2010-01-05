@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.db.models.fields.related import RelatedField
 
 # this takes some inspiration from the publisher stuff in
 # django-cms 2.0
@@ -54,20 +55,27 @@ class Publishable(models.Model):
         if not public_version:
             public_version = self.__class__(is_public=True)
         
-        # copy over regular fields
-        for field in self._meta.fields:
-            if field.name in self.PublishMeta.publish_exclude_fields:
-                continue
-            
-            value = getattr(self, field.name)
-            setattr(public_version, field.name, value)
+        if self.publish_state == Publishable.PUBLISH_CHANGED:
+            # copy over regular fields
+            for field in self._meta.fields:
+                if field.name in self.PublishMeta.publish_exclude_fields:
+                    continue
+                
+                value = getattr(self, field.name)
+                if isinstance(field, RelatedField):
+                    related = field.rel.to
+                    if issubclass(related, Publishable):
+                        if value is not None:
+                            value = value.publish()
         
-        # save the public version and update
-        # state so we know everything is up-to-date
-        public_version.save()
-        self.public = public_version
-        self.publish_state = Publishable.PUBLISH_DEFAULT
-        self.save(mark_changed=False)
+                setattr(public_version, field.name, value)
+        
+            # save the public version and update
+            # state so we know everything is up-to-date
+            public_version.save()
+            self.public = public_version
+            self.publish_state = Publishable.PUBLISH_DEFAULT
+            self.save(mark_changed=False)
 
         # copy over many-to-many fields
         for field in self._meta.many_to_many:
@@ -81,6 +89,8 @@ class Publishable(models.Model):
             public_objs = list(m2m_manager.all())
             public_m2m_manager.exclude(pk__in=[p.pk for p in public_objs]).delete()
             public_m2m_manager.add(*public_objs)
+        
+        return public_version
             
 
 if getattr(settings, 'TESTING_PUBLISH', False):
@@ -102,3 +112,19 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
         class Meta:
             ordering = ['url']
+
+    class Page(Publishable):
+        slug = models.CharField(max_length=100, db_index=True)
+        title = models.CharField(max_length=200)
+        content = models.TextField(blank=True)
+        
+        parent = models.ForeignKey('self', blank=True, null=True)
+        
+        class Meta:
+            ordering = ['slug']
+
+        def get_absolute_url(self):
+            if not self.parent:
+                return u'/%s/' % self.slug
+            return '%s%s/' % (self.parent.get_absolute_url(), self.slug)
+

@@ -2,7 +2,7 @@ from django.conf import settings
  
 if getattr(settings, 'TESTING_PUBLISH', False):
     from django.test import TransactionTestCase
-    from publish.models import Publishable, FlatPage, Site
+    from publish.models import Publishable, FlatPage, Site, Page
 
     class TestBasicPublishable(TransactionTestCase):
         
@@ -173,5 +173,84 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
             self.flat_page.publish()
             self.failUnlessEqual([], list(self.flat_page.public.sites.all()))
+
+    class TestPublishableRecursiveForeignKey(TransactionTestCase):
+
+        def setUp(self):
+            super(TestPublishableRecursiveForeignKey, self).setUp()
+            self.page1 = Page.objects.create(slug='page1', title='page 1', content='some content')
+            self.page2 = Page.objects.create(slug='page2', title='page 2', content='other content', parent=self.page1)
+        
+        def test_publish_parent(self):
+            # this shouldn't publish the child page
+            self.page1.publish()
+            self.failUnless(self.page1.public)
+            self.failIf(self.page1.public.parent)
+            
+            page2 = Page.objects.get(id=self.page2.id)
+            self.failIf(page2.public)
+        
+        def test_publish_child_parent_already_published(self):
+            self.page1.publish()
+            self.page2.publish()
+
+            self.failUnless(self.page1.public)
+            self.failUnless(self.page2.public)
+
+            self.failIf(self.page1.public.parent)
+            self.failUnless(self.page2.public.parent)
+
+            self.failIfEqual(self.page1, self.page2.public.parent)
+
+            self.failUnlessEqual('/page1/', self.page1.public.get_absolute_url())
+            self.failUnlessEqual('/page1/page2/', self.page2.public.get_absolute_url())
+
+        def test_publish_child_parent_not_already_published(self):
+            self.page2.publish()
+            
+            page1 = Page.objects.get(id=self.page1.id)
+            self.failUnless(page1.public)
+            self.failUnless(self.page2.public)
+
+            self.failIf(page1.public.parent)
+            self.failUnless(self.page2.public.parent)
+
+            self.failIfEqual(page1, self.page2.public.parent)
+
+            self.failUnlessEqual('/page1/', self.page1.public.get_absolute_url())
+            self.failUnlessEqual('/page1/page2/', self.page2.public.get_absolute_url())
+
+        def test_publish_repeated(self):
+            self.page1.publish()
+            self.page2.publish()
+            
+            self.page1.slug='main'
+            self.page1.save()
+
+            self.failUnlessEqual('/main/', self.page1.get_absolute_url())
+            
+            page1 = Page.objects.get(id=self.page1.id)
+            page2 = Page.objects.get(id=self.page2.id)
+            self.failUnlessEqual('/page1/', page1.public.get_absolute_url())
+            self.failUnlessEqual('/page1/page2/', page2.public.get_absolute_url())
+            
+            page1.publish()
+            page1 = Page.objects.get(id=self.page1.id)
+            page2 = Page.objects.get(id=self.page2.id)
+            self.failUnlessEqual('/main/', page1.public.get_absolute_url())
+            self.failUnlessEqual('/main/page2/', page2.public.get_absolute_url())
+            
+            page1.slug='elsewhere'
+            page1.save()
+            page1 = Page.objects.get(id=self.page1.id)
+            page2 = Page.objects.get(id=self.page2.id)
+            page2.slug='meanwhile'
+            page2.save()
+            page2.publish()
+            page1 = Page.objects.get(id=self.page1.id)
+            page2 = Page.objects.get(id=self.page2.id)
+
+            self.failUnlessEqual('/elsewhere/', page1.public.get_absolute_url())
+            self.failUnlessEqual('/elsewhere/meanwhile/', page2.public.get_absolute_url())
 
 
