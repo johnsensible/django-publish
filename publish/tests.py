@@ -174,6 +174,19 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.flat_page.publish()
             self.failUnlessEqual([], list(self.flat_page.public.sites.all()))
 
+        def test_publish_sites_cleared_not_deleted(self):
+            self.flat_page.sites.add(self.site1, self.site2)
+            self.flat_page.publish()
+            self.flat_page.sites.clear()
+            self.flat_page.publish()
+
+            self.failUnlessEqual([], list(self.flat_page.public.sites.all()))
+            
+            self.failIfEqual([], list(Site.objects.all()))
+
+            
+
+
     class TestPublishableRecursiveForeignKey(TransactionTestCase):
 
         def setUp(self):

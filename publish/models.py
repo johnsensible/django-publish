@@ -87,7 +87,8 @@ class Publishable(models.Model):
             public_m2m_manager = getattr(public_version, name)
             
             public_objs = list(m2m_manager.all())
-            public_m2m_manager.exclude(pk__in=[p.pk for p in public_objs]).delete()
+            old_objs = public_m2m_manager.exclude(pk__in=[p.pk for p in public_objs])
+            public_m2m_manager.remove(*old_objs)
             public_m2m_manager.add(*public_objs)
         
         return public_version
