@@ -42,7 +42,7 @@ class Publishable(models.Model):
         abstract = True
 
     class PublishMeta(object):
-        publish_exclude_fields = ['id', 'is_public', 'publish_state', 'public']
+        publish_exclude_fields = ['id', 'is_public', 'publish_state', 'public', 'draft']
 
         @classmethod
         def excluded_fields(cls):
@@ -67,9 +67,7 @@ class Publishable(models.Model):
         super(Publishable, self).delete()
 
     def publish(self, already_published=None):
-        if self.is_public:
-            raise ValueError("Cannot publish public model - publish should be called from draft model")
-        
+        assert not self.is_public, "Cannot publish public model - publish should be called from draft model"
         assert self.pk is not None, "Please save model before publishing"
 
         # avoid mutual recursion
@@ -126,7 +124,31 @@ class Publishable(models.Model):
             public_m2m_manager.add(*public_objs)
         
         return public_version
-            
+    
+    def _collect_related_deleted_instances(self):
+        related_instances = []
+        if self.publish_state == Publishable.PUBLISH_DELETE:
+            related_instances.append(self)
+        
+        for related in self._meta.get_all_related_objects():
+            if not issubclass(related.model, Publishable):
+                continue
+            name = related.get_accessor_name()
+            if name in self.PublishMeta.excluded_fields():
+                continue
+            try:
+                instances = getattr(self, name).deleted()
+            except AttributeError:
+                instances = [instance for instance in [getattr(self, name)] if instance.publish_state == Publishable.PUBLISH_DELETE]
+            related_instances.extend(instances)
+        return related_instances
+
+    def _delete_marked(self):
+        # find and delete all instances related to this model that need deleting
+        assert self.is_public, "_delete_marked should only be called from public model"
+
+        for instance in self._collect_related_deleted_instances():
+            instance.delete()
 
 if getattr(settings, 'TESTING_PUBLISH', False):
     # classes to test that publishing etc work ok
@@ -176,4 +198,5 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             if not self.parent:
                 return u'/%s/' % self.slug
             return '%s%s/' % (self.parent.get_absolute_url(), self.slug)
+
 

@@ -34,7 +34,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 self.flat_page.is_public = True
                 self.flat_page.publish()
                 self.fail("Should not be able to publish public models")
-            except ValueError:
+            except AssertionError:
                 pass
 
         def test_publish_check_has_id(self):
@@ -148,6 +148,17 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.flat_page1.delete()
             self.failUnlessEqual([public], list(FlatPage.objects.deleted()))
 
+        def test_delete_marked(self):
+            self.flat_page1.publish()
+
+            public = self.flat_page1.public
+            self.flat_page1.delete()
+            
+            self.failUnless(public in FlatPage.objects.published())
+            self.failUnlessEqual([public], list(FlatPage.objects.deleted()))            
+
+            public._delete_marked()
+            self.failIf(public in FlatPage.objects.published())
 
     class TestPublishableManyToMany(TransactionTestCase):
         
@@ -299,6 +310,18 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
             self.failUnlessEqual('/elsewhere/', page1.public.get_absolute_url())
             self.failUnlessEqual('/elsewhere/meanwhile/', page2.public.get_absolute_url())
+
+        def test_delete_marked(self):
+            self.page1.publish()
+            self.page2.publish()
+            
+            public = self.page2.public
+            self.page2.delete()
+            self.failUnlessEqual([public], list(Page.objects.deleted()))
+
+            public._delete_marked()
+            self.failUnlessEqual([self.page1.public], list(Page.objects.published()))
+            self.failUnlessEqual([], list(Page.objects.deleted()))
 
     class TestPublishableRecursiveManyToManyField(TransactionTestCase):
 
