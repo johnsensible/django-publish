@@ -77,9 +77,10 @@ class Publishable(models.Model):
             
             m2m_manager = getattr(self, name)
             public_m2m_manager = getattr(public_version, name)
-            objs = m2m_manager.all()
-            public_m2m_manager.exclude(id__in=objs).delete()
-            public_m2m_manager.add(*list(objs))
+            
+            public_objs = list(m2m_manager.all())
+            public_m2m_manager.exclude(pk__in=[p.pk for p in public_objs]).delete()
+            public_m2m_manager.add(*public_objs)
             
 
 if getattr(settings, 'TESTING_PUBLISH', False):
