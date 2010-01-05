@@ -85,8 +85,13 @@ class Publishable(models.Model):
             
             m2m_manager = getattr(self, name)
             public_m2m_manager = getattr(public_version, name)
-            
             public_objs = list(m2m_manager.all())
+
+            field_object, model, direct, m2m = self._meta.get_field_by_name(name)
+            related = field_object.rel.to
+            if issubclass(related, Publishable):
+                public_objs = [p.publish() for p in public_objs]
+            
             old_objs = public_m2m_manager.exclude(pk__in=[p.pk for p in public_objs])
             public_m2m_manager.remove(*old_objs)
             public_m2m_manager.add(*public_objs)
@@ -113,6 +118,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
         class Meta:
             ordering = ['url']
+    
+    class Author(Publishable):
+        name = models.CharField(max_length=100)
+        profile = models.TextField(blank=True)
 
     class Page(Publishable):
         slug = models.CharField(max_length=100, db_index=True)
@@ -121,6 +130,8 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         
         parent = models.ForeignKey('self', blank=True, null=True)
         
+        authors = models.ManyToManyField(Author)
+
         class Meta:
             ordering = ['slug']
 
