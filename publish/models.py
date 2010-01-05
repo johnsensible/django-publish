@@ -68,21 +68,35 @@ class Publishable(models.Model):
         self.public = public_version
         self.publish_state = Publishable.PUBLISH_DEFAULT
         self.save(mark_changed=False)
+
+        # copy over many-to-many fields
+        for field in self._meta.many_to_many:
+            name = field.name
+            if name in self.PublishMeta.publish_exclude_fields:
+                continue
+            
+            m2m_manager = getattr(self, name)
+            public_m2m_manager = getattr(public_version, name)
+            objs = m2m_manager.all()
+            public_m2m_manager.exclude(id__in=objs).delete()
+            public_m2m_manager.add(*list(objs))
             
 
 if getattr(settings, 'TESTING_PUBLISH', False):
     # classes to test that publishing etc work ok
-    from django.contrib.sites.models import Site
     from django.utils.translation import ugettext_lazy as _    
 
+    class Site(models.Model):
+        title = models.CharField(max_length=100)
+        domain = models.CharField(max_length=100)
+
     class FlatPage(Publishable):
-        url = models.CharField(_('URL'), max_length=100, db_index=True)
-        title = models.CharField(_('title'), max_length=200)
-        content = models.TextField(_('content'), blank=True)
-        enable_comments = models.BooleanField(_('enable comments'))
-        template_name = models.CharField(_('template name'), max_length=70, blank=True,
-        help_text=_("Example: 'flatpages/contact_page.html'. If this isn't provided, the system will use 'flatpages/default.html'."))
-        registration_required = models.BooleanField(_('registration required'), help_text=_("If this is checked, only logged-in users will be able to view the page."))
+        url = models.CharField(max_length=100, db_index=True)
+        title = models.CharField(max_length=200)
+        content = models.TextField(blank=True)
+        enable_comments = models.BooleanField()
+        template_name = models.CharField(max_length=70, blank=True)
+        registration_required = models.BooleanField()
         sites = models.ManyToManyField(Site)
 
         class Meta:

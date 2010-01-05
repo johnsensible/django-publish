@@ -2,18 +2,16 @@ from django.conf import settings
  
 if getattr(settings, 'TESTING_PUBLISH', False):
     from django.test import TransactionTestCase
-    from publish.models import Publishable, FlatPage
+    from publish.models import Publishable, FlatPage, Site
 
     class TestBasicPublishable(TransactionTestCase):
         
         def setUp(self):
             super(TestBasicPublishable, self).setUp()
-            self.flat_page = FlatPage()
-            self.flat_page.url = '/my-page/'
-            self.flat_page.title = 'my page'
-            self.flat_page.content = 'here is some content'
-            self.flat_page.enable_comments = False
-            self.flat_page.registration_required = True
+            self.flat_page = FlatPage(url='/my-page', title='my page',
+                                      content='here is some content', 
+                                      enable_comments=False,
+                                      registration_required=True)
 
 
         def test_save_marks_changed(self):
@@ -23,6 +21,14 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.flat_page.save()
             self.failUnlessEqual(Publishable.PUBLISH_CHANGED, self.flat_page.publish_state)
         
+        def test_publish_excludes_fields(self):
+            self.flat_page.save()
+            self.flat_page.publish()
+            self.failUnless(self.flat_page.public)
+            self.failIfEqual(self.flat_page.id, self.flat_page.public.id)
+            self.failUnless(self.flat_page.public.is_public)
+            self.failUnlessEqual(Publishable.PUBLISH_DEFAULT, self.flat_page.public.publish_state)
+
         def test_publish_check_is_not_public(self):
             try:
                 self.flat_page.is_public = True
@@ -61,6 +67,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnlessEqual(public, self.flat_page.public)
             self.failUnlessEqual(public.title, self.flat_page.title)
             self.failUnlessEqual(Publishable.PUBLISH_DEFAULT, self.flat_page.publish_state)
+ 
 
     class TestPublishableManager(TransactionTestCase):
         
@@ -107,4 +114,64 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             self.flat_page2.publish()
             self.failUnlessEqual([self.flat_page1.public, self.flat_page2.public], list(FlatPage.objects.published()))
+
+    class TestPublishableManyToMany(TransactionTestCase):
+        
+        def setUp(self):
+            super(TestPublishableManyToMany, self).setUp()
+            self.flat_page = FlatPage.objects.create(
+                                      url='/my-page', title='my page',
+                                      content='here is some content', 
+                                      enable_comments=False,
+                                      registration_required=True)
+            self.site1 = Site.objects.create(title='my site', domain='mysite.com')
+            self.site2 = Site.objects.create(title='a site', domain='asite.com')
+        
+        def test_publish_no_sites(self):
+            self.flat_page.publish()
+            self.failUnless(self.flat_page.public)
+            self.failUnlessEqual([], list(self.flat_page.public.sites.all()))
+        
+        def test_publish_add_site(self):
+            self.flat_page.sites.add(self.site1)
+            self.flat_page.publish()
+            self.failUnless(self.flat_page.public)
+            self.failUnlessEqual([self.site1], list(self.flat_page.public.sites.all()))
+        
+        def test_publish_repeated_add_site(self):
+            self.flat_page.sites.add(self.site1)
+            self.flat_page.publish()
+            self.failUnless(self.flat_page.public)
+            self.failUnlessEqual([self.site1], list(self.flat_page.public.sites.all()))
+            
+            self.flat_page.sites.add(self.site2)
+            self.failUnlessEqual([self.site1], list(self.flat_page.public.sites.all()))
+
+            self.flat_page.publish()
+            self.failUnlessEqual([self.site1, self.site2], list(self.flat_page.public.sites.order_by('id')))
+        
+        def test_publish_remove_site(self):
+            self.flat_page.sites.add(self.site1, self.site2)
+            self.flat_page.publish()
+            self.failUnless(self.flat_page.public)
+            self.failUnlessEqual([self.site1, self.site2], list(self.flat_page.public.sites.order_by('id')))
+
+            self.flat_page.sites.remove(self.site1)
+            self.failUnlessEqual([self.site1, self.site2], list(self.flat_page.public.sites.order_by('id')))
+
+            self.flat_page.publish()
+            self.failUnlessEqual([self.site2], list(self.flat_page.public.sites.all()))
+
+        def test_publish_clear_sites(self):
+            self.flat_page.sites.add(self.site1, self.site2)
+            self.flat_page.publish()
+            self.failUnless(self.flat_page.public)
+            self.failUnlessEqual([self.site1, self.site2], list(self.flat_page.public.sites.order_by('id')))
+
+            self.flat_page.sites.clear()
+            self.failUnlessEqual([self.site1, self.site2], list(self.flat_page.public.sites.order_by('id')))
+
+            self.flat_page.publish()
+            self.failUnlessEqual([], list(self.flat_page.public.sites.all()))
+
 
