@@ -47,10 +47,18 @@ class Publishable(models.Model):
             self.publish_state = Publishable.PUBLISH_CHANGED
         super(Publishable, self).save(*arg, **kw)
 
-    def publish(self):
+    def publish(self, already_published=None):
         if self.is_public:
             raise ValueError("Cannot publish public model - publish should be called from draft model")
         
+        # avoid mutual recursion
+        if already_published is None:
+            already_published = set()
+
+        if self in already_published:
+            return self.public
+        already_published.add(self)        
+
         public_version = self.public
         if not public_version:
             public_version = self.__class__(is_public=True)
@@ -66,7 +74,7 @@ class Publishable(models.Model):
                     related = field.rel.to
                     if issubclass(related, Publishable):
                         if value is not None:
-                            value = value.publish()
+                            value = value.publish(already_published=already_published)
         
                 setattr(public_version, field.name, value)
         
