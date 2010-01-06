@@ -2,7 +2,9 @@ from django.conf import settings
  
 if getattr(settings, 'TESTING_PUBLISH', False):
     from django.test import TransactionTestCase
+    from django.contrib.admin.sites import AdminSite
     from publish.models import Publishable, FlatPage, Site, Page, Author
+    from publish.admin import PublishableAdmin
 
     class TestBasicPublishable(TransactionTestCase):
         
@@ -385,3 +387,27 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         
         def test_publish_recursion_breaks(self):
             self.page1.publish() # this should simple run without an error
+
+    class TestPublishableAdmin(TransactionTestCase):
+        
+        def setUp(self):
+            super(TestPublishableAdmin, self).setUp()
+            self.page1 = Page.objects.create(slug='page1', title='page 1')
+            self.page2 = Page.objects.create(slug='page2', title='page 2')
+            self.page1.publish()
+            self.page2.publish()
+            self.admin_site = AdminSite('Test Admin')
+            self.page_admin = PublishableAdmin(Page, self.admin_site)
+
+        def test_queryset(self):
+            # make sure we only get back draft objects
+            request = None
+            
+            self.failUnlessEqual(
+                set([self.page1, self.page1.public, self.page2, self.page2.public]),
+                set(Page.objects.all())
+            )
+            self.failUnlessEqual(
+                set([self.page1, self.page2]),
+                set(self.page_admin.queryset(request))
+            )
