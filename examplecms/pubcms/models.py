@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.urlresolvers import reverse as reverse_url
 from publish.models import Publishable
 
 class Page(Publishable):
@@ -12,6 +13,20 @@ class Page(Publishable):
 
     def __unicode__(self):
         return self.title
+
+    def _get_all_slugs(self):
+        slugs = []
+        if self.parent:
+            slugs.extend(self.parent._get_all_slugs())
+        slugs.append(self.slug)
+        return slugs
+
+    def get_absolute_url(self):
+        url = '/'.join(self._get_all_slugs())
+        if self.is_public:
+            return reverse_url('public_page_detail', args=[url])
+        else:
+            return reverse_url('draft_page_detail', args=[url])
 
 class Category(Publishable):
     name = models.CharField(max_length=200)

@@ -1,21 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 from django.conf.urls.defaults import *
 from django.conf import settings
 
@@ -24,6 +6,7 @@ from django.contrib import admin
 admin.autodiscover()
 
 urlpatterns = patterns('',
-    # admin:
-    (r'^admin/(.*)', admin.site.root),
+    ('^admin/', include(admin.site.urls)),
+
+    ('^', include('pubcms.urls')),
 )
