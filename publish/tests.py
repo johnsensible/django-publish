@@ -3,6 +3,7 @@ from django.conf import settings
 if getattr(settings, 'TESTING_PUBLISH', False):
     from django.test import TransactionTestCase
     from django.contrib.admin.sites import AdminSite
+    from django.forms.models import ModelChoiceField
     from publish.models import Publishable, FlatPage, Site, Page, Author
     from publish.admin import PublishableAdmin
 
@@ -411,3 +412,29 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 set([self.page1, self.page2]),
                 set(self.page_admin.queryset(request))
             )
+
+        def test_formfield_for_foreignkey(self):
+            # foreign key forms fields in admin
+            # for publishable models should be filtered
+            # to hide public object
+
+            request = None
+            parent_field = None
+            for field in Page._meta.fields:
+                if field.name == 'parent':
+                    parent_field = field
+            self.failUnless(parent_field)
+            
+            choice_field = self.page_admin.formfield_for_foreignkey(parent_field, request)
+            self.failUnless(choice_field)
+            self.failUnless(isinstance(choice_field, ModelChoiceField))
+
+            self.failUnlessEqual(
+                set([self.page1, self.page1.public, self.page2, self.page2.public]),
+                set(Page.objects.all())
+            )
+            self.failUnlessEqual(
+                set([self.page1, self.page2]),
+                set(choice_field.queryset)
+            )
+
