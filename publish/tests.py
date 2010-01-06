@@ -3,7 +3,7 @@ from django.conf import settings
 if getattr(settings, 'TESTING_PUBLISH', False):
     from django.test import TransactionTestCase
     from django.contrib.admin.sites import AdminSite
-    from django.forms.models import ModelChoiceField
+    from django.forms.models import ModelChoiceField, ModelMultipleChoiceField
     from publish.models import Publishable, FlatPage, Site, Page, Author
     from publish.admin import PublishableAdmin
 
@@ -397,6 +397,12 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.page2 = Page.objects.create(slug='page2', title='page 2')
             self.page1.publish()
             self.page2.publish()
+
+            self.author1 = Author.objects.create(name='a1')
+            self.author2 = Author.objects.create(name='a2')
+            self.author1.publish()
+            self.author2.publish()
+
             self.admin_site = AdminSite('Test Admin')
             self.page_admin = PublishableAdmin(Page, self.admin_site)
 
@@ -423,6 +429,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             for field in Page._meta.fields:
                 if field.name == 'parent':
                     parent_field = field
+                    break
             self.failUnless(parent_field)
             
             choice_field = self.page_admin.formfield_for_foreignkey(parent_field, request)
@@ -435,6 +442,28 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             )
             self.failUnlessEqual(
                 set([self.page1, self.page2]),
+                set(choice_field.queryset)
+            )
+
+        def test_formfield_for_manytomany(self):
+            request = None
+            authors_field = None
+            for field in Page._meta.many_to_many:
+                if field.name == 'authors':
+                    authors_field = field
+                    break
+            self.failUnless(authors_field)
+
+            choice_field = self.page_admin.formfield_for_manytomany(authors_field, request)
+            self.failUnless(choice_field)
+            self.failUnless(isinstance(choice_field, ModelMultipleChoiceField))
+
+            self.failUnlessEqual(
+                set([self.author1, self.author1.public, self.author2, self.author2.public]),
+                set(Author.objects.all())
+            )
+            self.failUnlessEqual(
+                set([self.author1, self.author2]),
                 set(choice_field.queryset)
             )
 
