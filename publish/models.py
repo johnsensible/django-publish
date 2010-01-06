@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.query import QuerySet
 from django.conf import settings
 from django.db.models.fields.related import RelatedField
 
@@ -9,23 +10,45 @@ from django.db.models.fields.related import RelatedField
 # but we want this to be a reusable/standalone app and have a few different needs
 #
 
-class PublishableManager(models.Manager):
+class PublishableQuerySet(QuerySet):
     
     def changed(self):
         '''all draft objects that have not been published yet'''
-        return self.get_query_set().filter(is_public=False, publish_state=Publishable.PUBLISH_CHANGED)
+        return self.filter(is_public=False, publish_state=Publishable.PUBLISH_CHANGED)
     
     def deleted(self):
         '''public objects that need deleting'''
-        return self.get_query_set().filter(is_public=True, publish_state=Publishable.PUBLISH_DELETE)
+        return self.filter(is_public=True, publish_state=Publishable.PUBLISH_DELETE)
 
     def draft(self):
         '''all draft objects'''
-        return self.get_query_set().filter(is_public=False)
+        return self.filter(is_public=False)
     
     def published(self):
         '''all public/published objects'''
-        return self.get_query_set().filter(is_public=True)
+        return self.filter(is_public=True)
+
+
+class PublishableManager(models.Manager):
+    
+    def get_query_set(self):
+        return PublishableQuerySet(self.model)
+
+    def changed(self):
+        '''all draft objects that have not been published yet'''
+        return self.get_query_set().changed()
+        
+    def deleted(self):
+        '''public objects that need deleting'''
+        return self.get_query_set().deleted()
+    
+    def draft(self):
+        '''all draft objects'''
+        return self.get_query_set().draft()
+    
+    def published(self):
+        '''all public/published objects'''
+        return self.get_query_set().published()
 
 class Publishable(models.Model):
     PUBLISH_DEFAULT = 0
