@@ -13,5 +13,5 @@ class PublishableAdmin(admin.ModelAdmin):
         print "formfield_for_foreignkey"
         model = db_field.rel.to
         if issubclass(model, Publishable):
-            kwargs['queryset'] = model.objects.draft()
+            kwargs['queryset'] = model._default_manager.draft()
         return super(PublishableAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
