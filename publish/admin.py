@@ -9,6 +9,7 @@ class PublishableAdmin(admin.ModelAdmin):
     publish_confirmation_template = None
     
     list_display = ['__unicode__', 'publish_state']
+    list_filter = ['publish_state']
 
     def queryset(self, request):
         # we want to show draft and deleted
