@@ -9,9 +9,11 @@ class PublishableAdmin(admin.ModelAdmin):
     publish_confirmation_template = None
 
     def queryset(self, request):
-        # only show draft models in admin
+        # we want to show draft and deleted
+        # objects in changelist in admin
+        # so we can let the user select and publish them
         qs = super(PublishableAdmin, self).queryset(request)
-        return qs.draft()
+        return qs.draft_and_deleted()
 
     def _draft_queryset(self, db_field, kwargs):
         # see if we need to filter the field's queryset
