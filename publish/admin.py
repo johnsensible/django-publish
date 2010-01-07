@@ -7,6 +7,8 @@ class PublishableAdmin(admin.ModelAdmin):
     
     actions = [publish_selected]
     publish_confirmation_template = None
+    
+    list_display = ['__unicode__', 'publish_state']
 
     def queryset(self, request):
         # we want to show draft and deleted
@@ -14,6 +16,18 @@ class PublishableAdmin(admin.ModelAdmin):
         # so we can let the user select and publish them
         qs = super(PublishableAdmin, self).queryset(request)
         return qs.draft_and_deleted()
+
+    def has_change_permission(self, request, obj=None):
+        # use can never change public models directly
+        if obj and obj.is_public:
+            return False
+        return super(PublishableAdmin, self).has_change_permission(request, obj)
+    
+    def has_delete_permission(self, request, obj=None):
+        # use can never delete models directly
+        if obj and obj.is_public:
+            return False
+        return super(PublishableAdmin, self).has_delete_permission(request, obj)
 
     def _draft_queryset(self, db_field, kwargs):
         # see if we need to filter the field's queryset

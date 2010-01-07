@@ -70,10 +70,10 @@ class Publishable(models.Model):
     PUBLISH_CHANGED = 1
     PUBLISH_DELETE  = 2
 
-    PUBLISH_CHOICES = ((PUBLISH_DEFAULT, 'Default'), (PUBLISH_CHANGED, 'Changed'), (PUBLISH_DELETE, 'Delete'))
+    PUBLISH_CHOICES = ((PUBLISH_DEFAULT, ''), (PUBLISH_CHANGED, 'Changed'), (PUBLISH_DELETE, 'To be deleted'))
 
     is_public = models.BooleanField(default=False, editable=False, db_index=True)
-    publish_state = models.IntegerField(editable=False, db_index=True, choices=PUBLISH_CHOICES, default=PUBLISH_DEFAULT)
+    publish_state = models.IntegerField('Publication status', editable=False, db_index=True, choices=PUBLISH_CHOICES, default=PUBLISH_DEFAULT)
     public = models.OneToOneField('self', related_name='draft', null=True, editable=False)
     
     class Meta:
