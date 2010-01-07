@@ -1,9 +1,13 @@
 from django.contrib import admin
 
 from models import Publishable
+from actions import publish_selected
 
 class PublishableAdmin(admin.ModelAdmin):
     
+    actions = [publish_selected]
+    publish_confirmation_template = None
+
     def queryset(self, request):
         # only show draft models in admin
         qs = super(PublishableAdmin, self).queryset(request)

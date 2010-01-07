@@ -11,6 +11,8 @@ from django.db.models.fields.related import RelatedField
 #
 
 class PublishableQuerySet(QuerySet):
+
+    # TODO override delete() so we update the delete status for published models
     
     def changed(self):
         '''all draft objects that have not been published yet'''
@@ -27,6 +29,10 @@ class PublishableQuerySet(QuerySet):
     def published(self):
         '''all public/published objects'''
         return self.filter(is_public=True)
+
+    def publish(self):
+        '''publish all models in this queryset and return a list of the published versions'''
+        return [p.publish() for p in self]
 
 
 class PublishableManager(models.Manager):
