@@ -6,11 +6,11 @@ from django import template
 from django.utils.encoding import force_unicode
 
 from models import Publishable
-from actions import publish_selected
+from actions import publish_selected, delete_selected
 
 class PublishableAdmin(admin.ModelAdmin):
     
-    actions = [publish_selected]
+    actions = [publish_selected, delete_selected]
     publish_confirmation_template = None
     deleted_form_template = None
     
@@ -23,6 +23,14 @@ class PublishableAdmin(admin.ModelAdmin):
         # so we can let the user select and publish them
         qs = super(PublishableAdmin, self).queryset(request)
         return qs.draft_and_deleted()
+
+    def get_actions(self, request):
+        actions = super(PublishableAdmin, self).get_actions(request)
+        # replace site-wide delete selected with out own version
+        if 'delete_selected' in actions:
+            actions['delete_selected'] = (delete_selected, 'delete_selected', delete_selected.short_description)
+        return actions
+
 
     def has_change_permission(self, request, obj=None):
         # use can never change public models directly

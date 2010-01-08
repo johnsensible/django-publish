@@ -8,6 +8,15 @@ from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.text import capfirst
 from django.utils.translation import ugettext_lazy, ugettext as _
+from django.contrib.admin.actions import delete_selected as django_delete_selected
+
+def delete_selected(modeladmin, request, queryset):
+    # wrap regular django delete_selected to check permissions for each object
+    for obj in queryset:
+        if not modeladmin.has_delete_permission(request, obj):
+            raise PermissionDenied
+    return django_delete_selected(modeladmin, request, queryset)
+delete_selected.short_description = "Mark %(verbose_name_plural)s for deletion"
 
 def publish_selected(modeladmin, request, queryset):
     # TODO check permission
