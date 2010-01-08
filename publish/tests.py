@@ -77,6 +77,23 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnlessEqual(public, self.flat_page.public)
             self.failUnlessEqual(public.title, self.flat_page.title)
             self.failUnlessEqual(Publishable.PUBLISH_DEFAULT, self.flat_page.publish_state)
+        
+        def test_publish_records_published(self):
+            all_published = set()
+            self.flat_page.save()
+            self.flat_page.publish(all_published=all_published)
+            self.failUnlessEqual(1, len(all_published))
+            self.failUnless(self.flat_page in all_published)
+            self.failUnless(self.flat_page.public)
+
+        def test_publish_dryrun(self):
+            all_published = set()
+            self.flat_page.save()
+            self.flat_page.publish(dry_run=True, all_published=all_published)
+            self.failUnlessEqual(1, len(all_published))
+            self.failUnless(self.flat_page in all_published)
+            self.failIf(self.flat_page.public)
+            self.failUnlessEqual(Publishable.PUBLISH_CHANGED, self.flat_page.publish_state)
 
         def test_delete_after_publish(self):
             self.flat_page.save()

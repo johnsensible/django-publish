@@ -119,17 +119,25 @@ class Publishable(models.Model):
             return self.public
         return self.publish(*arg, **kw)
 
-    def publish(self, already_published=None):
+    def publish(self, dry_run=False, all_published=None):
+        '''
+        publish the model - basically copy all of it's content to another copy in the 
+        database.
+        if you set dry_run=True nothing will be written to the database.  combined with
+        the all_published value one can therefore get information about what other models
+        would be affected by this function
+        '''
+
         assert not self.is_public, "Cannot publish public model - publish should be called from draft model"
         assert self.pk is not None, "Please save model before publishing"
 
         # avoid mutual recursion
-        if already_published is None:
-            already_published = set()
+        if all_published is None:
+            all_published = set()
 
-        if self in already_published:
+        if self in all_published:
             return self.public
-        already_published.add(self)        
+        all_published.add(self)        
 
         public_version = self.public
         if not public_version:
@@ -146,16 +154,17 @@ class Publishable(models.Model):
                     related = field.rel.to
                     if issubclass(related, Publishable):
                         if value is not None:
-                            value = value._get_public_or_publish(already_published=already_published)
+                            value = value._get_public_or_publish(dry_run=dry_run, all_published=all_published)
         
                 setattr(public_version, field.name, value)
         
             # save the public version and update
             # state so we know everything is up-to-date
-            public_version.save()
-            self.public = public_version
-            self.publish_state = Publishable.PUBLISH_DEFAULT
-            self.save(mark_changed=False)
+            if not dry_run:
+                public_version.save()
+                self.public = public_version
+                self.publish_state = Publishable.PUBLISH_DEFAULT
+                self.save(mark_changed=False)
 
         # copy over many-to-many fields
         for field in self._meta.many_to_many:
@@ -164,17 +173,18 @@ class Publishable(models.Model):
                 continue
             
             m2m_manager = getattr(self, name)
-            public_m2m_manager = getattr(public_version, name)
             public_objs = list(m2m_manager.all())
 
             field_object, model, direct, m2m = self._meta.get_field_by_name(name)
             related = field_object.rel.to
             if issubclass(related, Publishable):
-                public_objs = [p._get_public_or_publish(already_published=already_published) for p in public_objs]
+                public_objs = [p._get_public_or_publish(dry_run=dry_run, all_published=all_published) for p in public_objs]
             
-            old_objs = public_m2m_manager.exclude(pk__in=[p.pk for p in public_objs])
-            public_m2m_manager.remove(*old_objs)
-            public_m2m_manager.add(*public_objs)
+            if not dry_run:
+                public_m2m_manager = getattr(public_version, name)
+                old_objs = public_m2m_manager.exclude(pk__in=[p.pk for p in public_objs])
+                public_m2m_manager.remove(*old_objs)
+                public_m2m_manager.add(*public_objs)
 
         # one-to-many reverse relations
         for obj in self._meta.get_all_related_objects():
@@ -187,7 +197,7 @@ class Publishable(models.Model):
                 if obj.field.rel.multiple:
                     related_items = getattr(self, name).all()
                     for related_item in related_items:
-                        related_item.publish(already_published=already_published)
+                        related_item.publish(dry_run=dry_run, all_published=all_published)
 
         return public_version
     
