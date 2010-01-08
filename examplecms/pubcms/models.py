@@ -5,7 +5,6 @@ from publish.models import Publishable
 class Page(Publishable):
     title = models.CharField(max_length=200)
     slug  = models.CharField(max_length=100, db_index=True)
-    content = models.TextField(blank=True)
     
     parent = models.ForeignKey('self', blank=True, null=True)
 
@@ -27,6 +26,10 @@ class Page(Publishable):
             return reverse_url('public_page_detail', args=[url])
         else:
             return reverse_url('draft_page_detail', args=[url])
+
+class PageBlock(Publishable):
+    page = models.ForeignKey(Page)
+    content = models.TextField(blank=False)
 
 class Category(Publishable):
     name = models.CharField(max_length=200)
