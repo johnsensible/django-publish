@@ -3,6 +3,8 @@ from django.db.models.query import QuerySet, Q
 from django.conf import settings
 from django.db.models.fields.related import RelatedField
 
+from utils import NestedSet
+
 # this takes some inspiration from the publisher stuff in
 # django-cms 2.0
 # e.g. http://github.com/digi604/django-cms-2.0/blob/master/publisher/models.py
@@ -133,7 +135,7 @@ class Publishable(models.Model):
 
         # avoid mutual recursion
         if all_published is None:
-            all_published = set()
+            all_published = NestedSet()
 
         if self in all_published:
             return self.public

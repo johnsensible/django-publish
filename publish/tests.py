@@ -1,12 +1,47 @@
 from django.conf import settings
  
 if getattr(settings, 'TESTING_PUBLISH', False):
+    import unittest
     from django.test import TransactionTestCase
     from django.contrib.admin.sites import AdminSite
     from django.forms.models import ModelChoiceField, ModelMultipleChoiceField
     from publish.models import Publishable, FlatPage, Site, Page, Author
     from publish.admin import PublishableAdmin
+    from publish.utils import NestedSet
+    
+    class TestNestedSet(unittest.TestCase):
+        
+        def setUp(self):
+            super(TestNestedSet, self).setUp()
+            self.nested = NestedSet()
 
+        def test_len(self):
+            self.failUnlessEqual(0, len(self.nested))
+            self.nested.add('one')
+            self.failUnlessEqual(1, len(self.nested))
+            self.nested.add('two')
+            self.failUnlessEqual(2, len(self.nested))
+            self.nested.add('one2', parent='one')
+            self.failUnlessEqual(3, len(self.nested))
+
+        def test_contains(self):
+            self.failIf('one' in self.nested)
+            self.nested.add('one')
+            self.failUnless('one' in self.nested)
+            self.nested.add('one2', parent='one')
+            self.failUnless('one2' in self.nested)
+
+        def test_nested_items(self):
+            self.failUnlessEqual([], self.nested.nested_items())
+            self.nested.add('one')
+            self.failUnlessEqual(['one'], self.nested.nested_items())
+            self.nested.add('two')
+            self.nested.add('one2', parent='one')
+            self.failUnlessEqual(['one', ['one2'], 'two'], self.nested.nested_items())
+            self.nested.add('one2-1', parent='one2')
+            self.nested.add('one2-2', parent='one2')
+            self.failUnlessEqual(['one', ['one2', ['one2-1', 'one2-2']], 'two'], self.nested.nested_items())
+ 
     class TestBasicPublishable(TransactionTestCase):
         
         def setUp(self):
@@ -79,7 +114,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnlessEqual(Publishable.PUBLISH_DEFAULT, self.flat_page.publish_state)
         
         def test_publish_records_published(self):
-            all_published = set()
+            all_published = NestedSet()
             self.flat_page.save()
             self.flat_page.publish(all_published=all_published)
             self.failUnlessEqual(1, len(all_published))
@@ -87,7 +122,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnless(self.flat_page.public)
 
         def test_publish_dryrun(self):
-            all_published = set()
+            all_published = NestedSet()
             self.flat_page.save()
             self.flat_page.publish(dry_run=True, all_published=all_published)
             self.failUnlessEqual(1, len(all_published))
