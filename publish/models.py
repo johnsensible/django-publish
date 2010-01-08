@@ -104,6 +104,13 @@ class Publishable(models.Model):
             self.public.save()
         super(Publishable, self).delete()
 
+    def _get_public_or_publish(self, *arg, **kw):
+        # only publish if we don't yet have an id for the
+        # public model
+        if self.public:
+            return self.public
+        return self.publish(*arg, **kw)
+
     def publish(self, already_published=None):
         assert not self.is_public, "Cannot publish public model - publish should be called from draft model"
         assert self.pk is not None, "Please save model before publishing"
@@ -131,7 +138,7 @@ class Publishable(models.Model):
                     related = field.rel.to
                     if issubclass(related, Publishable):
                         if value is not None:
-                            value = value.publish(already_published=already_published)
+                            value = value._get_public_or_publish(already_published=already_published)
         
                 setattr(public_version, field.name, value)
         
@@ -155,7 +162,7 @@ class Publishable(models.Model):
             field_object, model, direct, m2m = self._meta.get_field_by_name(name)
             related = field_object.rel.to
             if issubclass(related, Publishable):
-                public_objs = [p.publish() for p in public_objs]
+                public_objs = [p._get_public_or_publish(already_published=already_published) for p in public_objs]
             
             old_objs = public_m2m_manager.exclude(pk__in=[p.pk for p in public_objs])
             public_m2m_manager.remove(*old_objs)

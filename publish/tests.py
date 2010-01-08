@@ -310,6 +310,20 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             page2.publish()
             page1 = Page.objects.get(id=self.page1.id)
             page2 = Page.objects.get(id=self.page2.id)
+            
+            # only page2 should be published, not page1, as page1 already published
+            self.failUnlessEqual(Publishable.PUBLISH_DEFAULT, page2.publish_state)
+            self.failUnlessEqual(Publishable.PUBLISH_CHANGED, page1.publish_state)
+
+            self.failUnlessEqual('/main/', page1.public.get_absolute_url())
+            self.failUnlessEqual('/main/meanwhile/', page2.public.get_absolute_url())
+
+            page1.publish()
+            page1 = Page.objects.get(id=self.page1.id)
+            page2 = Page.objects.get(id=self.page2.id)
+
+            self.failUnlessEqual(Publishable.PUBLISH_DEFAULT, page2.publish_state)
+            self.failUnlessEqual(Publishable.PUBLISH_DEFAULT, page1.publish_state)
 
             self.failUnlessEqual('/elsewhere/', page1.public.get_absolute_url())
             self.failUnlessEqual('/elsewhere/meanwhile/', page2.public.get_absolute_url())
