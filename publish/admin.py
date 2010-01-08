@@ -31,7 +31,6 @@ class PublishableAdmin(admin.ModelAdmin):
             actions['delete_selected'] = (delete_selected, 'delete_selected', delete_selected.short_description)
         return actions
 
-
     def has_change_permission(self, request, obj=None):
         # use can never change public models directly
         if obj and obj.is_public:
@@ -45,7 +44,7 @@ class PublishableAdmin(admin.ModelAdmin):
         return super(PublishableAdmin, self).has_delete_permission(request, obj)
     
     def change_view(self, request, object_id, extra_context=None):
-        # TODO override change_view to trap permission errors
+        # override change_view to trap permission errors
         # and determine if the object being viewed is one
         # that is marked for deletion - if so then we want
         # to show some sort of page to indicate this fact 
