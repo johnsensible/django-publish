@@ -81,14 +81,22 @@ class Publishable(models.Model):
 
     class PublishMeta(object):
         publish_exclude_fields = ['id', 'is_public', 'publish_state', 'public', 'draft']
+        publish_reverse_fields = []
+
+        @classmethod
+        def _combined_fields(cls, field_name):
+            fields = []
+            for clazz in cls.__mro__:
+                fields.extend(getattr(clazz, field_name, []))
+            return fields
 
         @classmethod
         def excluded_fields(cls):
-            publish_exclude_fields = []
-            for clazz in cls.__mro__:
-                exclude = getattr(clazz, 'publish_exclude_fields', [])
-                publish_exclude_fields.extend(exclude)
-            return publish_exclude_fields
+            return cls._combined_fields('publish_exclude_fields')
+
+        @classmethod
+        def reverse_fields_to_publish(cls):
+            return cls._combined_fields('publish_reverse_fields')
 
     objects = PublishableManager()
 
@@ -167,7 +175,20 @@ class Publishable(models.Model):
             old_objs = public_m2m_manager.exclude(pk__in=[p.pk for p in public_objs])
             public_m2m_manager.remove(*old_objs)
             public_m2m_manager.add(*public_objs)
-        
+
+        # one-to-many reverse relations
+        for obj in self._meta.get_all_related_objects():
+            if issubclass(obj.model, Publishable):
+                name = obj.get_accessor_name()
+                if name in self.PublishMeta.excluded_fields():
+                    continue
+                if name not in self.PublishMeta.reverse_fields_to_publish():
+                    continue
+                if obj.field.rel.multiple:
+                    related_items = getattr(self, name).all()
+                    for related_item in related_items:
+                        related_item.publish(already_published=already_published)
+
         return public_version
     
     def _collect_related_deleted_instances(self):

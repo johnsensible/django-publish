@@ -10,6 +10,9 @@ class Page(Publishable):
 
     categories = models.ManyToManyField('Category', blank=True)
 
+    class PublishMeta(Publishable.PublishMeta):
+        publish_reverse_fields=['pageblock_set']
+
     def __unicode__(self):
         return self.title
 
