@@ -7,6 +7,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     from django.forms.models import ModelChoiceField, ModelMultipleChoiceField
     from publish.models import Publishable, FlatPage, Site, Page, PageBlock, Author
     from publish.admin import PublishableAdmin
+    from publish.actions import publish_selected
     from publish.utils import NestedSet
     
     class TestNestedSet(unittest.TestCase):
@@ -34,13 +35,13 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         def test_nested_items(self):
             self.failUnlessEqual([], self.nested.nested_items())
             self.nested.add('one')
-            self.failUnlessEqual(['one'], self.nested.nested_items())
+            self.failUnlessEqual(['one', []], self.nested.nested_items())
             self.nested.add('two')
             self.nested.add('one2', parent='one')
-            self.failUnlessEqual(['one', ['one2'], 'two'], self.nested.nested_items())
+            self.failUnlessEqual(['one', ['one2', []], 'two', []], self.nested.nested_items())
             self.nested.add('one2-1', parent='one2')
             self.nested.add('one2-2', parent='one2')
-            self.failUnlessEqual(['one', ['one2', ['one2-1', 'one2-2']], 'two'], self.nested.nested_items())
+            self.failUnlessEqual(['one', ['one2', ['one2-1', [], 'one2-2', []]], 'two', []], self.nested.nested_items())
  
     class TestBasicPublishable(TransactionTestCase):
         
@@ -602,4 +603,41 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 set([self.author1, self.author2]),
                 set(choice_field.queryset)
             )
+    
+    class TestPublishSelectedAction(TransactionTestCase):
+        
+        def setUp(self):
+            super(TestPublishSelectedAction, self).setUp()
+            self.fp1 = FlatPage.objects.create(url='/fp1', title='FP1')
+            self.fp2 = FlatPage.objects.create(url='/fp2', title='FP2')
+            self.fp3 = FlatPage.objects.create(url='/fp3', title='FP3')
 
+            self.admin_site = AdminSite('Test Admin')
+            self.page_admin = PublishableAdmin(FlatPage, self.admin_site)
+
+        def test_publish_selected_confirm(self):
+            flatpages = FlatPage.objects.exclude(id=self.fp3.id)
+            
+            class dummy_request(object):
+                POST = {}
+
+            response = publish_selected(self.page_admin, dummy_request, flatpages)
+
+            self.failIf(FlatPage.objects.published().count() > 0)
+
+        def test_publish_selected_confirmed(self):
+            flatpages = FlatPage.objects.exclude(id=self.fp3.id)
+            
+            class dummy_request(object):
+                POST = {'post': True}
+
+                class user(object):
+                    class message_set(object):
+                        @classmethod
+                        def create(cls, message=None):
+                            self._message = message
+
+            response = publish_selected(self.page_admin, dummy_request, flatpages)
+
+            self.failUnlessEqual(2, FlatPage.objects.published().count())
+            self.failUnless( getattr(self, '_message', None) is not None )

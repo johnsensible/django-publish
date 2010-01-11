@@ -26,8 +26,7 @@ class NestedSet(object):
         for item in items:
             nested.append(item)
             children = self._nested_children(item)
-            if children:
-                nested.append(children)
+            nested.append(children)
 
     def _nested_children(self, item):
         children = []
