@@ -624,6 +624,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             response = publish_selected(self.page_admin, dummy_request, flatpages)
 
             self.failIf(FlatPage.objects.published().count() > 0)
+            self.failUnless( response is not None)
 
         def test_publish_selected_confirmed(self):
             flatpages = FlatPage.objects.exclude(id=self.fp3.id)
@@ -641,3 +642,4 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
             self.failUnlessEqual(2, FlatPage.objects.published().count())
             self.failUnless( getattr(self, '_message', None) is not None )
+            self.failUnless( response is None )
