@@ -249,7 +249,7 @@ class Publishable(models.Model):
             except AttributeError:
                 instances = [getattr(self, name)]
             for instance in instances:
-                instance.delete_if_marked(all_published=all_published, parent=self, dry_run=dry_run)
+                instance.publish_deletions(all_published=all_published, parent=self, dry_run=dry_run)
         
         if not dry_run:
             self.delete()

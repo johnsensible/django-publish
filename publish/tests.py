@@ -445,7 +445,22 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             blocks = list(public.pageblock_set.all())
             self.failUnlessEqual(1, len(blocks))
             self.failUnlessEqual(page_block.content, blocks[0].content)
+        
+        def test_publish_deletions_reverse_fields(self):
+            page_block = PageBlock.objects.create(page=self.page1, content='here we are')
+
+            self.page1.publish()
+            public = self.page1.public
+            self.failUnless(public)
+           
+            self.page1.delete()
+            public = Page.objects.get(id=public.id)
             
+            self.failUnlessEqual([public], list(Page.objects.deleted()))
+            
+            public.publish()
+            self.failUnlessEqual([], list(Page.objects.deleted()))
+            self.failUnlessEqual([], list(Page.objects.all()))
 
     class TestPublishableRecursiveManyToManyField(TransactionTestCase):
 
