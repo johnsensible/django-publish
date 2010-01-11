@@ -224,17 +224,38 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.flat_page1.delete()
             self.failUnlessEqual([public], list(FlatPage.objects.deleted()))
 
-        def test_publish_deletions(self):
-            self.flat_page1.publish()
-
-            public = self.flat_page1.public
-            self.flat_page1.delete()
+        def test_draft_and_deleted(self):
+            self.failUnlessEqual(set([self.flat_page1, self.flat_page2]), set(FlatPage.objects.draft_and_deleted()))
             
-            self.failUnless(public in FlatPage.objects.published())
-            self.failUnlessEqual([public], list(FlatPage.objects.deleted()))            
+            self.flat_page1.publish()
+            self.failUnlessEqual(set([self.flat_page1, self.flat_page2]), set(FlatPage.objects.draft_and_deleted()))
+            
+            public1 = self.flat_page1.public
+            self.flat_page1.delete()
+            self.failUnlessEqual(set([public1, self.flat_page2]), set(FlatPage.objects.draft_and_deleted()))
 
-            public.publish()
-            self.failIf(public in FlatPage.objects.published())
+
+        def test_delete(self):
+            # delete is overriden, so it marks the public instances
+            self.flat_page1.publish()
+            public1 = self.flat_page1.public
+            
+            FlatPage.objects.draft().delete()
+            
+            self.failUnlessEqual([public1], list(FlatPage.objects.all()))
+            self.failUnlessEqual([public1], list(FlatPage.objects.deleted()))
+        
+        def test_publish(self):
+            self.failUnlessEqual([], list(FlatPage.objects.published()))
+            
+            FlatPage.objects.draft().publish()
+
+            flat_page1 = FlatPage.objects.get(id=self.flat_page1.id)
+            flat_page2 = FlatPage.objects.get(id=self.flat_page2.id)
+ 
+            self.failUnlessEqual(set([flat_page1.public, flat_page2.public]), set(FlatPage.objects.published()))
+             
+        
 
     class TestPublishableManyToMany(TransactionTestCase):
         

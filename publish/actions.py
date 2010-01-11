@@ -33,11 +33,10 @@ def publish_selected(modeladmin, request, queryset):
     if request.POST.get('post'):
         n = queryset.count()
         if n:
-            for obj in queryset:
-                queryset.publish()
-                modeladmin.message_user(request, _("Successfully published %(count)d %(items)s.") % {
-                    "count": n, "items": model_ngettext(modeladmin.opts, n)
-                })
+            queryset.publish()
+            modeladmin.message_user(request, _("Successfully published %(count)d %(items)s.") % {
+                "count": n, "items": model_ngettext(modeladmin.opts, n)
+            })
             # Return None to display the change list page again.
             return None
     

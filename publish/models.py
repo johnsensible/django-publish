@@ -35,7 +35,8 @@ class PublishableQuerySet(QuerySet):
 
     def publish(self):
         '''publish all models in this queryset and return a list of the published versions'''
-        return [p.publish() for p in self]
+        for p in self:
+            p.publish()
     
     def delete(self):
         '''
@@ -63,6 +64,9 @@ class PublishableManager(models.Manager):
         '''all draft objects'''
         return self.get_query_set().draft()
     
+    def draft_and_deleted(self):
+        return self.get_query_set().draft_and_deleted()   
+ 
     def published(self):
         '''all public/published objects'''
         return self.get_query_set().published()
