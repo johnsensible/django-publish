@@ -114,16 +114,29 @@ class Publishable(models.Model):
             self.public.save()
         super(Publishable, self).delete()
 
-    def _get_public_or_publish(self, *arg, **kw):
+    def publish(self, dry_run=False, all_published=None):
+        '''
+        either publish changes or deletions, depending on
+        whether this model is public or draft.
+    
+        public models will be examined to see if they need deleting
+        and deleted if so.
+        '''
+        if self.is_public:
+            self.publish_deletions(dry_run=dry_run, all_published=all_published)
+        else:
+            self.publish_changes(dry_run=dry_run, all_published=all_published)
+
+    def _get_public_or_publish_changes(self, *arg, **kw):
         # only publish if we don't yet have an id for the
         # public model
         if self.public:
             return self.public
-        return self.publish(*arg, **kw)
+        return self.publish_changes(*arg, **kw)
 
-    def publish(self, dry_run=False, all_published=None):
+    def publish_changes(self, dry_run=False, all_published=None, parent=None):
         '''
-        publish the model - basically copy all of it's content to another copy in the 
+        publish changes to the model - basically copy all of it's content to another copy in the 
         database.
         if you set dry_run=True nothing will be written to the database.  combined with
         the all_published value one can therefore get information about what other models
@@ -139,7 +152,7 @@ class Publishable(models.Model):
 
         if self in all_published:
             return self.public
-        all_published.add(self)        
+        all_published.add(self, parent=parent)        
 
         public_version = self.public
         if not public_version:
@@ -156,9 +169,10 @@ class Publishable(models.Model):
                     related = field.rel.to
                     if issubclass(related, Publishable):
                         if value is not None:
-                            value = value._get_public_or_publish(dry_run=dry_run, all_published=all_published)
-        
-                setattr(public_version, field.name, value)
+                            value = value._get_public_or_publish_changes(dry_run=dry_run, all_published=all_published, parent=self)
+                
+                if not dry_run:
+                    setattr(public_version, field.name, value)
         
             # save the public version and update
             # state so we know everything is up-to-date
@@ -180,7 +194,7 @@ class Publishable(models.Model):
             field_object, model, direct, m2m = self._meta.get_field_by_name(name)
             related = field_object.rel.to
             if issubclass(related, Publishable):
-                public_objs = [p._get_public_or_publish(dry_run=dry_run, all_published=all_published) for p in public_objs]
+                public_objs = [p._get_public_or_publish_changes(dry_run=dry_run, all_published=all_published, parent=self) for p in public_objs]
             
             if not dry_run:
                 public_m2m_manager = getattr(public_version, name)
@@ -199,15 +213,27 @@ class Publishable(models.Model):
                 if obj.field.rel.multiple:
                     related_items = getattr(self, name).all()
                     for related_item in related_items:
-                        related_item.publish(dry_run=dry_run, all_published=all_published)
+                        related_item.publish_changes(dry_run=dry_run, all_published=all_published, parent=self)
 
         return public_version
     
-    def _collect_related_deleted_instances(self):
-        related_instances = []
-        if self.publish_state == Publishable.PUBLISH_DELETE:
-            related_instances.append(self)
+    def publish_deletions(self, all_published=None, parent=None, dry_run=False):
+        '''
+        actually delete models that have been marked for deletion
+        '''
+        assert self.is_public, "delete_if_marked should only be called from public model"
         
+        if self.publish_state != Publishable.PUBLISH_DELETE:
+            return  
+
+        if all_published is None:
+            all_published = NestedSet()
+
+        if self in all_published:
+            return
+        
+        all_published.add(self, parent=parent)
+
         for related in self._meta.get_all_related_objects():
             if not issubclass(related.model, Publishable):
                 continue
@@ -215,18 +241,15 @@ class Publishable(models.Model):
             if name in self.PublishMeta.excluded_fields():
                 continue
             try:
-                instances = getattr(self, name).deleted()
+                instances = getattr(self, name).all()
             except AttributeError:
-                instances = [instance for instance in [getattr(self, name)] if instance.publish_state == Publishable.PUBLISH_DELETE]
-            related_instances.extend(instances)
-        return related_instances
+                instances = [getattr(self, name)]
+            for instance in instances:
+                instance.delete_if_marked(all_published=all_published, parent=self, dry_run=dry_run)
+        
+        if not dry_run:
+            self.delete()
 
-    def _delete_marked(self):
-        # find and delete all instances related to this model that need deleting
-        assert self.is_public, "_delete_marked should only be called from public model"
-
-        for instance in self._collect_related_deleted_instances():
-            instance.delete()
 
 if getattr(settings, 'TESTING_PUBLISH', False):
     # classes to test that publishing etc work ok

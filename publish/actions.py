@@ -10,6 +10,8 @@ from django.utils.text import capfirst
 from django.utils.translation import ugettext_lazy, ugettext as _
 from django.contrib.admin.actions import delete_selected as django_delete_selected
 
+from utils import NestedSet
+
 def delete_selected(modeladmin, request, queryset):
     # wrap regular django delete_selected to check permissions for each object
     for obj in queryset:
@@ -23,15 +25,10 @@ def publish_selected(modeladmin, request, queryset):
     
     opts = modeladmin.model._meta
     app_label = opts.app_label
-
-    deletable_objects = []
     
-    perms_needed = set()
-    i = 0
+    all_published = NestedSet()
     for obj in queryset:
-        deletable_objects.append([mark_safe(u'%s: <a href="%s/">%s</a>' % (escape(force_unicode(capfirst(opts.verbose_name))), obj.pk, escape(obj))), []])
-        get_deleted_objects(deletable_objects[i], perms_needed, request.user, obj, opts, 1, modeladmin.admin_site, levels_to_root=2)
-        i=i+1
+        obj.publish(dry_run=True, all_published=all_published)
 
     if request.POST.get('post'):
         n = queryset.count()
@@ -47,9 +44,8 @@ def publish_selected(modeladmin, request, queryset):
     context = {
         "title": _("Publish?"),
         "object_name": force_unicode(opts.verbose_name),
-        "deletable_objects": deletable_objects,
+        "all_published": all_published.nested_items(),
         'queryset': queryset,
-        "perms_lacking": perms_needed,
         "opts": opts,
         "root_path": modeladmin.admin_site.root_path,
         "app_label": app_label,

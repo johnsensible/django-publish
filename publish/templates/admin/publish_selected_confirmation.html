@@ -20,9 +20,8 @@
     </ul>
 {% else %}
     <p>{% blocktrans %}Are you sure you want to publish the selected {{ object_name }} objects? All of the following objects and their related items will be published:{% endblocktrans %}</p>
-    {% for deleteable_object in deletable_objects %}
-        <ul>{{ deleteable_object|unordered_list }}</ul>
-    {% endfor %}
+        <ul>{{ all_published|unordered_list }}</ul>
+
     <form action="" method="post">
     <div>
     {% for obj in queryset %}
