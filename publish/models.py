@@ -283,6 +283,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         changed = models.DateTimeField(db_index=True, auto_now_add=True)
         message = models.CharField(max_length=200)
 
+    class PageBlock(Publishable):
+        page=models.ForeignKey('Page')
+        content = models.TextField(blank=True)
+
     class Page(Publishable):
         slug = models.CharField(max_length=100, db_index=True)
         title = models.CharField(max_length=200)
@@ -298,6 +302,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
         class PublishMeta(Publishable.PublishMeta):
             publish_exclude_fields = ['log']
+            publish_reverse_fields = ['pageblock_set']
 
         def get_absolute_url(self):
             if not self.parent:

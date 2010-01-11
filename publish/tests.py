@@ -5,7 +5,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     from django.test import TransactionTestCase
     from django.contrib.admin.sites import AdminSite
     from django.forms.models import ModelChoiceField, ModelMultipleChoiceField
-    from publish.models import Publishable, FlatPage, Site, Page, Author
+    from publish.models import Publishable, FlatPage, Site, Page, PageBlock, Author
     from publish.admin import PublishableAdmin
     from publish.utils import NestedSet
     
@@ -433,6 +433,19 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             public.publish()
             self.failUnlessEqual([self.page1.public], list(Page.objects.published()))
             self.failUnlessEqual([], list(Page.objects.deleted()))
+
+        def test_publish_reverse_fields(self):
+            page_block = PageBlock.objects.create(page=self.page1, content='here we are')
+
+            self.page1.publish()
+
+            public = self.page1.public
+            self.failUnless(public)
+            
+            blocks = list(public.pageblock_set.all())
+            self.failUnlessEqual(1, len(blocks))
+            self.failUnlessEqual(page_block.content, blocks[0].content)
+            
 
     class TestPublishableRecursiveManyToManyField(TransactionTestCase):
 
