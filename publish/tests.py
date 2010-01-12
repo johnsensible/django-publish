@@ -643,7 +643,8 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
             self.admin_site = AdminSite('Test Admin')
             self.page_admin = PublishableAdmin(FlatPage, self.admin_site)
-
+            
+            # override urls, so reverse works
             settings.ROOT_URLCONF=patterns('',
                 ('^admin/', include(self.admin_site.urls)),
             )
