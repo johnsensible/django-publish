@@ -37,13 +37,13 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         def test_nested_items(self):
             self.failUnlessEqual([], self.nested.nested_items())
             self.nested.add('one')
-            self.failUnlessEqual(['one', []], self.nested.nested_items())
+            self.failUnlessEqual(['one'], self.nested.nested_items())
             self.nested.add('two')
             self.nested.add('one2', parent='one')
-            self.failUnlessEqual(['one', ['one2', []], 'two', []], self.nested.nested_items())
+            self.failUnlessEqual(['one', ['one2'], 'two'], self.nested.nested_items())
             self.nested.add('one2-1', parent='one2')
             self.nested.add('one2-2', parent='one2')
-            self.failUnlessEqual(['one', ['one2', ['one2-1', [], 'one2-2', []]], 'two', []], self.nested.nested_items())
+            self.failUnlessEqual(['one', ['one2', ['one2-1', 'one2-2']], 'two'], self.nested.nested_items())
  
     class TestBasicPublishable(TransactionTestCase):
         
@@ -664,6 +664,6 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             page_admin = PublishableAdmin(Page, self.admin_site)
             converted = _convert_all_published_to_html(page_admin, all_published)
 
-            expected = [u'<a href="../../publish/page/%d/">Page: Page object</a>' % page.id, [u'Page block: PageBlock object', []]]
+            expected = [u'<a href="../../publish/page/%d/">Page: Page object (Changed - not yet published)</a>' % page.id, [u'Page block: PageBlock object (Changed - not yet published)']]
 
             self.failUnlessEqual(expected, converted)

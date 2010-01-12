@@ -21,6 +21,14 @@ def delete_selected(modeladmin, request, queryset):
     return django_delete_selected(modeladmin, request, queryset)
 delete_selected.short_description = "Mark %(verbose_name_plural)s for deletion"
 
+def _publish_status(model):
+    state = model.get_publish_state_display()
+    if state:
+        if not model.is_public and not model.public:
+            state = '%s - not yet published' % state
+        return ' (%s)' % state
+    return ''
+
 def _convert_all_published_to_html(modeladmin, all_published):
     admin_site = modeladmin.admin_site
     levels_to_root=2
@@ -32,7 +40,7 @@ def _convert_all_published_to_html(modeladmin, all_published):
                 model = value.__class__
                 model_name = escape(capfirst(model._meta.verbose_name))
                 model_title = escape(force_unicode(value))
-                model_text = '%s: %s' % (model_name, model_title)
+                model_text = '%s: %s%s' % (model_name, model_title, _publish_status(value))
                 opts = model._meta                
 
                 has_admin = model in modeladmin.admin_site._registry
