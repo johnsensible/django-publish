@@ -608,6 +608,34 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 set(choice_field.queryset)
             )
         
+        def test_has_change_permission(self):
+            class dummy_request(object):
+                method = 'GET'
+                REQUEST = {}
+                
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, permission):
+                        return True
+
+            self.failUnless(self.page_admin.has_change_permission(dummy_request))
+            self.failUnless(self.page_admin.has_change_permission(dummy_request, self.page1))
+            self.failIf(self.page_admin.has_change_permission(dummy_request, self.page1.public))
+ 
+        def test_has_delete_permission(self):
+            class dummy_request(object):
+                method = 'GET'
+                REQUEST = {}
+                
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, permission):
+                        return True
+
+            self.failUnless(self.page_admin.has_delete_permission(dummy_request))
+            self.failUnless(self.page_admin.has_delete_permission(dummy_request, self.page1))
+            self.failIf(self.page_admin.has_delete_permission(dummy_request, self.page1.public))
+
         def test_deleted_view_only_public_allowed(self):
             request = None
             try:
