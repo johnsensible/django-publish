@@ -6,6 +6,8 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     from django.contrib.admin.sites import AdminSite
     from django.forms.models import ModelChoiceField, ModelMultipleChoiceField
     from django.conf.urls.defaults import *
+    from django.core.exceptions import PermissionDenied
+    from django.http import Http404
 
     from publish.models import Publishable, FlatPage, Site, Page, PageBlock, Author
     from publish.admin import PublishableAdmin
@@ -605,6 +607,31 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 set([self.author1, self.author2]),
                 set(choice_field.queryset)
             )
+        
+        def test_deleted_view_only_public_allowed(self):
+            request = None
+            try:
+                self.page_admin.deleted_view(request, str(self.page1.id))
+                fail()
+            except PermissionDenied:
+                pass
+
+        def test_deleted_view_only_deleted_found(self):
+            request = None
+            try:
+                self.page_admin.deleted_view(request, str(self.page1.public.id))
+                fail()
+            except Http404:
+                pass
+        
+        def test_deleted_view(self):
+            request = None
+            public1 = self.page1.public
+            self.page1.delete()
+            
+            response = self.page_admin.deleted_view(request, str(public1.id))
+            self.failUnless(response is not None)
+
     
     class TestPublishSelectedAction(TransactionTestCase):
         
