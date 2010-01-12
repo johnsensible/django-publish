@@ -2,7 +2,11 @@ DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 DATABASE_ENGINE = 'sqlite3'
 DATABASE_NAME = ':memory:'
-INSTALLED_APPS = ( 'django.contrib.admin', 'publish', )
+INSTALLED_APPS = ( 
+                    'django.contrib.contenttypes',
+                    'django.contrib.admin',
+                    'publish',
+                 )
 
 TEMPLATE_LOADERS = (
     'django.template.loaders.filesystem.load_template_source',

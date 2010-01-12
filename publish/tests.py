@@ -631,8 +631,56 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             response = self.page_admin.deleted_view(request, str(public1.id))
             self.failUnless(response is not None)
+        
+        def test_change_view_normal(self):
+            class dummy_request(object):
+                method = 'GET'
+                REQUEST = {}
+                
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, permission):
+                        return True
 
-    
+                    @classmethod
+                    def get_and_delete_messages(cls):
+                        return []
+            
+            response = self.page_admin.change_view(dummy_request, str(self.page1.id))
+            self.failUnless(response is not None)
+            self.failIf('deleted' in response.content)
+        
+        def test_change_view_not_deleted(self):
+            class dummy_request(object):
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, permission):
+                        return True
+            
+            try:
+                self.page_admin.change_view(dummy_request, str(self.page1.public.id))
+                fail()
+            except Http404:
+                pass
+
+        def test_change_view_deleted(self):
+            class dummy_request(object):
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, permission):
+                        return True
+                    
+                    @classmethod
+                    def get_and_delete_messages(cls):
+                        return []
+            
+            public1 = self.page1.public
+            self.page1.delete()
+
+            response = self.page_admin.change_view(dummy_request, str(public1.id))
+            self.failUnless(response is not None)
+            self.failUnless('deleted' in response.content)
+     
     class TestPublishSelectedAction(TransactionTestCase):
         
         def setUp(self):
