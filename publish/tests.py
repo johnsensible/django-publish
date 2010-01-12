@@ -5,9 +5,11 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     from django.test import TransactionTestCase
     from django.contrib.admin.sites import AdminSite
     from django.forms.models import ModelChoiceField, ModelMultipleChoiceField
+    from django.conf.urls.defaults import *
+
     from publish.models import Publishable, FlatPage, Site, Page, PageBlock, Author
     from publish.admin import PublishableAdmin
-    from publish.actions import publish_selected
+    from publish.actions import publish_selected, _convert_all_published_to_html
     from publish.utils import NestedSet
     
     class TestNestedSet(unittest.TestCase):
@@ -615,6 +617,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.admin_site = AdminSite('Test Admin')
             self.page_admin = PublishableAdmin(FlatPage, self.admin_site)
 
+            settings.ROOT_URLCONF=patterns('',
+                ('^admin/', include(self.admin_site.urls)),
+            )
+
         def test_publish_selected_confirm(self):
             flatpages = FlatPage.objects.exclude(id=self.fp3.id)
             
@@ -643,3 +649,21 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnlessEqual(2, FlatPage.objects.published().count())
             self.failUnless( getattr(self, '_message', None) is not None )
             self.failUnless( response is None )
+
+        def test_convert_all_published_to_html(self):
+            self.admin_site.register(Page, PublishableAdmin)
+
+            all_published = NestedSet()
+            
+            page = Page.objects.create(slug='here', title='title')
+            block = PageBlock.objects.create(page=page, content='stuff here')
+
+            all_published.add(page) 
+            all_published.add(block, parent=page)
+
+            page_admin = PublishableAdmin(Page, self.admin_site)
+            converted = _convert_all_published_to_html(page_admin, all_published)
+
+            expected = [u'<a href="../../publish/page/%d/">Page: Page object</a>' % page.id, [u'Page block: PageBlock object', []]]
+
+            self.failUnlessEqual(expected, converted)
