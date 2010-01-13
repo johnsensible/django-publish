@@ -11,7 +11,8 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
     from publish.models import Publishable, FlatPage, Site, Page, PageBlock, Author
     from publish.admin import PublishableAdmin
-    from publish.actions import publish_selected, _convert_all_published_to_html
+    from publish.actions import publish_selected, \
+                                _convert_all_published_to_html, _publish_status
     from publish.utils import NestedSet
     
     class TestNestedSet(unittest.TestCase):
@@ -800,3 +801,15 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             expected = [u'<a href="../../publish/page/%d/">Page: Page object (Changed - not yet published)</a>' % page.id, [u'Page block: PageBlock object (Changed - not yet published)']]
 
             self.failUnlessEqual(expected, converted)
+        
+        def test_publish_status(self):
+            self.failUnlessEqual(' (Changed - not yet published)', _publish_status(self.fp1))
+            self.fp1.publish()
+            self.failUnlessEqual('', _publish_status(self.fp1))
+            self.fp1.save()
+            self.failUnlessEqual(' (Changed)', _publish_status(self.fp1))
+            
+            public = self.fp1.public
+            self.fp1.delete()
+            public = FlatPage.objects.get(id=public.id)
+            self.failUnlessEqual(' (To be deleted)', _publish_status(public))
