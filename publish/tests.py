@@ -171,7 +171,23 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                        
             public.publish()
             self.failUnlessEqual(set([self.flat_page, public]), set(FlatPage.objects.all()))
-
+        
+        def test_publish_deletions_checks_all_published(self):
+            # make sure publish_deletions looks at all_published arg
+            # to see if we need to actually publish the deletion
+            self.flat_page.save()
+            self.flat_page.publish()
+            public = self.flat_page.public
+            
+            self.flat_page.delete()
+            
+            self.failUnlessEqual(set([public]), set(FlatPage.objects.all()))
+            
+            all_published = NestedSet()
+            all_published.add(public)
+            
+            public.publish(all_published=all_published)
+            self.failUnlessEqual(set([public]), set(FlatPage.objects.all()))
 
     class TestPublishableManager(TransactionTestCase):
         
