@@ -11,7 +11,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
     from publish.models import Publishable, FlatPage, Site, Page, PageBlock, Author
     from publish.admin import PublishableAdmin
-    from publish.actions import publish_selected, \
+    from publish.actions import publish_selected, delete_selected, \
                                 _convert_all_published_to_html, _publish_status
     from publish.utils import NestedSet
     
@@ -813,3 +813,49 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.fp1.delete()
             public = FlatPage.objects.get(id=public.id)
             self.failUnlessEqual(' (To be deleted)', _publish_status(public))
+        
+    class TestDeleteSelected(TransactionTestCase):
+        
+        def setUp(self):
+            super(TestDeleteSelected, self).setUp()
+            self.fp1 = FlatPage.objects.create(url='/fp1', title='FP1')
+            self.fp2 = FlatPage.objects.create(url='/fp2', title='FP2')
+            self.fp3 = FlatPage.objects.create(url='/fp3', title='FP3')
+            
+            self.fp1.publish()
+            self.fp2.publish()
+            self.fp3.publish()
+            
+            self.admin_site = AdminSite('Test Admin')
+            self.page_admin = PublishableAdmin(FlatPage, self.admin_site)
+            
+            # override urls, so reverse works
+            settings.ROOT_URLCONF=patterns('',
+                ('^admin/', include(self.admin_site.urls)),
+            )
+        
+        def test_delete_selected_check_cannot_delete_public(self):
+            # delete won't work (via admin) for public instances
+            request = None
+            try:
+                delete_selected(self.page_admin, request, FlatPage.objects.published())
+                fail()
+            except PermissionDenied:
+                pass
+        
+        def test_delete_selected(self):
+            class dummy_request(object):
+                POST = { }
+                
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, *arg):
+                        return True
+                    
+                    @classmethod
+                    def get_and_delete_messages(cls):
+                        return []
+            
+            response = delete_selected(self.page_admin, dummy_request, FlatPage.objects.draft())
+            self.failUnless(response is not None)
+        
