@@ -559,7 +559,20 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 set([self.page1, self.page2]),
                 set(self.page_admin.queryset(request))
             )
-
+        
+        def test_get_actions_global_delete_replaced(self):
+            from publish.actions import delete_selected
+            
+            request = None
+            actions = self.page_admin.get_actions(request)
+            
+            
+            self.failUnless('delete_selected' in actions)
+            action, name, description = actions['delete_selected']
+            self.failUnlessEqual(delete_selected, action)
+            self.failUnlessEqual('delete_selected', name)
+            self.failUnlessEqual(delete_selected.short_description, description)
+        
         def test_formfield_for_foreignkey(self):
             # foreign key forms fields in admin
             # for publishable models should be filtered
