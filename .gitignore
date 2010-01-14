@@ -1,4 +1,6 @@
 .coverage
+dist
+django_publish.egg-info
 tags
 *.pyc
 *.swp
