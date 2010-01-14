@@ -11,9 +11,11 @@ from actions import publish_selected, delete_selected
 class PublishableAdmin(admin.ModelAdmin):
     
     actions = [publish_selected, delete_selected]
+    change_form_template = 'admin/publish_change_form.html'
     publish_confirmation_template = None
     deleted_form_template = None
     
+ 
     list_display = ['__unicode__', 'publish_state']
     list_filter = ['publish_state']
 
