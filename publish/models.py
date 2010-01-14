@@ -203,6 +203,9 @@ class Publishable(models.Model):
             public_objs = list(m2m_manager.all())
 
             field_object, model, direct, m2m = self._meta.get_field_by_name(name)
+            if field_object.rel.through:
+                continue # m2m via through table won't be dealt with here
+                        
             related = field_object.rel.to
             if issubclass(related, Publishable):
                 public_objs = [p._get_public_or_publish_changes(dry_run=dry_run, all_published=all_published, parent=self) for p in public_objs]
