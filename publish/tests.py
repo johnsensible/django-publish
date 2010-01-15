@@ -56,7 +56,18 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                                       content='here is some content', 
                                       enable_comments=False,
                                       registration_required=True)
-
+        
+        def test_get_public_absolute_url(self):
+            self.failUnlessEqual('/my-page*', self.flat_page.get_absolute_url())
+            # public absolute url doesn't exist until published
+            try:
+                self.flat_page.get_public_absolute_url()
+                self.fail()
+            except AttributeError:
+                pass
+            self.flat_page.save()
+            self.flat_page.publish()
+            self.failUnlessEqual('/my-page', self.flat_page.get_public_absolute_url())
 
         def test_save_marks_changed(self):
             self.failUnlessEqual(Publishable.PUBLISH_DEFAULT, self.flat_page.publish_state)

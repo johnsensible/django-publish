@@ -299,6 +299,11 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
         class Meta:
             ordering = ['url']
+        
+        def get_absolute_url(self):
+            if self.is_public:
+                return self.url
+            return '%s*' % self.url
     
     class Author(Publishable):
         name = models.CharField(max_length=100)
