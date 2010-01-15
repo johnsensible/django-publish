@@ -16,22 +16,22 @@ class PublishableQuerySet(QuerySet):
 
     def changed(self):
         '''all draft objects that have not been published yet'''
-        return self.filter(is_public=False, publish_state=Publishable.PUBLISH_CHANGED)
+        return self.filter(Publishable.Q_CHANGED)
     
     def deleted(self):
         '''public objects that need deleting'''
-        return self.filter(is_public=True, publish_state=Publishable.PUBLISH_DELETE)
+        return self.filter(Publishable.Q_DELETED)
 
     def draft(self):
         '''all draft objects'''
-        return self.filter(is_public=False)
+        return self.filter(Publishable.Q_DRAFT)
    
     def draft_and_deleted(self):
-        return self.filter(Q(is_public=False) | Q(is_public=True, publish_state=Publishable.PUBLISH_DELETE))
+        return self.filter(Publishable.Q_DRAFT | Publishable.Q_DELETED)
  
     def published(self):
         '''all public/published objects'''
-        return self.filter(is_public=True)
+        return self.filter(Publishable.Q_PUBLISHED)
 
     def publish(self):
         '''publish all models in this queryset and return a list of the published versions'''
@@ -77,6 +77,12 @@ class Publishable(models.Model):
     PUBLISH_DELETE  = 2
 
     PUBLISH_CHOICES = ((PUBLISH_DEFAULT, ''), (PUBLISH_CHANGED, 'Changed'), (PUBLISH_DELETE, 'To be deleted'))
+
+    # make these available here so can easily re-use them in other code
+    Q_PUBLISHED = Q(is_public=True)
+    Q_DRAFT     = Q(is_public=False)
+    Q_CHANGED   = Q(is_public=False, publish_state=PUBLISH_CHANGED)
+    Q_DELETED   = Q(is_public=True, publish_state=PUBLISH_DELETE)
 
     is_public = models.BooleanField(default=False, editable=False, db_index=True)
     publish_state = models.IntegerField('Publication status', editable=False, db_index=True, choices=PUBLISH_CHOICES, default=PUBLISH_DEFAULT)
