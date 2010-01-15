@@ -243,6 +243,10 @@ class Publishable(models.Model):
                     related_items = getattr(self, name).all()
                     for related_item in related_items:
                         related_item.publish_changes(dry_run=dry_run, all_published=all_published, parent=self)
+                    
+                    deleted_items = getattr(self.public, name).deleted()
+                    for deleted_item in deleted_items:
+                        deleted_item.publish_deletions(dry_run=dry_run, all_published=all_published, parent=self)
 
         return public_version
     
