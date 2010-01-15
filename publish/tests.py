@@ -9,7 +9,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     from django.core.exceptions import PermissionDenied
     from django.http import Http404
 
-    from publish.models import Publishable, FlatPage, Site, Page, PageBlock, Author
+    from publish.models import Publishable, FlatPage, Site, Page, PageBlock, Author, Tag, PageTagOrder
     from publish.admin import PublishableAdmin
     from publish.actions import publish_selected, delete_selected, \
                                 _convert_all_published_to_html, _publish_status
@@ -858,4 +858,18 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             response = delete_selected(self.page_admin, dummy_request, FlatPage.objects.draft())
             self.failUnless(response is not None)
+
+    class TestManyToManyThrough(TransactionTestCase):
         
+        def setUp(self):
+            super(TestManyToManyThrough, self).setUp()
+            self.page = Page.objects.create(slug='p1', title='P 1')
+            self.tag1 = Tag.objects.create(slug='tag1', title='Tag 1')
+            self.tag2 = Tag.objects.create(slug='tag2', title='Tag 2')
+            PageTagOrder.objects.create(page=self.page, tag=self.tag1, tag_order=2)
+            PageTagOrder.objects.create(page=self.page, tag=self.tag2, tag_order=1)
+            
+        def test_publish_copies_tags(self):
+            self.page.publish()
+            
+            self.failUnlessEqual(set([self.tag1, self.tag2]), set(self.page.public.tags.all()))

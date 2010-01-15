@@ -175,10 +175,13 @@ class Publishable(models.Model):
         if not public_version:
             public_version = self.__class__(is_public=True)
         
+        excluded_fields = self.PublishMeta.excluded_fields()
+        reverse_fields_to_publish = self.PublishMeta.reverse_fields_to_publish()
+        
         if self.publish_state == Publishable.PUBLISH_CHANGED:
             # copy over regular fields
             for field in self._meta.fields:
-                if field.name in self.PublishMeta.excluded_fields():
+                if field.name in excluded_fields:
                     continue
                 
                 value = getattr(self, field.name)
@@ -198,11 +201,11 @@ class Publishable(models.Model):
                 self.public = public_version
                 self.publish_state = Publishable.PUBLISH_DEFAULT
                 self.save(mark_changed=False)
-
+        
         # copy over many-to-many fields
         for field in self._meta.many_to_many:
             name = field.name
-            if name in self.PublishMeta.excluded_fields():
+            if name in excluded_fields:
                 continue
             
             m2m_manager = getattr(self, name)
@@ -210,6 +213,12 @@ class Publishable(models.Model):
 
             field_object, model, direct, m2m = self._meta.get_field_by_name(name)
             if field_object.rel.through:
+                # see if we can work out which reverse relationship this is
+                related_model = field_object.rel.through_model
+                related_name = field_object.related_query_name()
+                related_field = getattr(related_model, related_name).field
+                reverse_name = related_field.related.get_accessor_name()
+                reverse_fields_to_publish.append(reverse_name)
                 continue # m2m via through table won't be dealt with here
                         
             related = field_object.rel.to
@@ -226,9 +235,9 @@ class Publishable(models.Model):
         for obj in self._meta.get_all_related_objects():
             if issubclass(obj.model, Publishable):
                 name = obj.get_accessor_name()
-                if name in self.PublishMeta.excluded_fields():
+                if name in excluded_fields:
                     continue
-                if name not in self.PublishMeta.reverse_fields_to_publish():
+                if name not in reverse_fields_to_publish:
                     continue
                 if obj.field.rel.multiple:
                     related_items = getattr(self, name).all()
@@ -298,11 +307,15 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     class ChangeLog(models.Model):
         changed = models.DateTimeField(db_index=True, auto_now_add=True)
         message = models.CharField(max_length=200)
-
+    
+    class Tag(models.Model):
+        title = models.CharField(max_length=100, unique=True)
+        slug = models.CharField(max_length=100)
+    
     class PageBlock(Publishable):
         page=models.ForeignKey('Page')
         content = models.TextField(blank=True)
-
+    
     class Page(Publishable):
         slug = models.CharField(max_length=100, db_index=True)
         title = models.CharField(max_length=200)
@@ -311,7 +324,9 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         parent = models.ForeignKey('self', blank=True, null=True)
         
         authors = models.ManyToManyField(Author)
-        log = models.ManyToManyField(ChangeLog)        
+        log = models.ManyToManyField(ChangeLog)
+        
+        tags = models.ManyToManyField(Tag, through='PageTagOrder')
 
         class Meta:
             ordering = ['slug']
@@ -324,5 +339,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             if not self.parent:
                 return u'/%s/' % self.slug
             return '%s%s/' % (self.parent.get_absolute_url(), self.slug)
+    
+    class PageTagOrder(Publishable):
+         page=models.ForeignKey(Page)
+         tag=models.ForeignKey(Tag)
+         tag_order=models.IntegerField()
 
 

@@ -13,6 +13,11 @@ How it works
 * The admin then only shows you "draft" (and "deleted") instances
 * You work on the draft instances, then when you are happy "publish" the draft values to the public instances
 
+Notes
+=====
+
+* ManyToManyField's specified using a "through" model will be treated as a regular reverse relationship, but will automatically be published (no need to specify it via ``PublishableMeta.publish_reverse_fields``)
+
 Tests
 =====
 
