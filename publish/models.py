@@ -244,9 +244,11 @@ class Publishable(models.Model):
                     for related_item in related_items:
                         related_item.publish_changes(dry_run=dry_run, all_published=all_published, parent=self)
                     
-                    deleted_items = getattr(self.public, name).deleted()
-                    for deleted_item in deleted_items:
-                        deleted_item.publish_deletions(dry_run=dry_run, all_published=all_published, parent=self)
+                    # make sure we tidy up anything that needs deleting
+                    if self.public:
+                        deleted_items = getattr(self.public, name).deleted()
+                        for deleted_item in deleted_items:
+                            deleted_item.publish_deletions(dry_run=dry_run, all_published=all_published, parent=self)
 
         return public_version
     
