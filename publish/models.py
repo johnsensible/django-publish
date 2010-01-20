@@ -94,6 +94,7 @@ class Publishable(models.Model):
     class PublishMeta(object):
         publish_exclude_fields = ['id', 'is_public', 'publish_state', 'public', 'draft']
         publish_reverse_fields = []
+        publish_functions = {}        
 
         @classmethod
         def _combined_fields(cls, field_name):
@@ -109,6 +110,19 @@ class Publishable(models.Model):
         @classmethod
         def reverse_fields_to_publish(cls):
             return cls._combined_fields('publish_reverse_fields')
+
+        @classmethod
+        def find_publish_function(cls, field_name, default_function):
+            '''
+                Search to see if there is a function to copy the given field over.
+                Function should take same params as setattr()
+            '''
+            for clazz in cls.__mro__:
+                publish_functions = getattr(clazz, 'publish_functions', {})
+                fn = publish_functions.get(field_name, None)
+                if fn:
+                    return fn
+            return default_function
 
     objects = PublishableManager()
 
@@ -192,7 +206,8 @@ class Publishable(models.Model):
                             value = value._get_public_or_publish_changes(dry_run=dry_run, all_published=all_published, parent=self)
                 
                 if not dry_run:
-                    setattr(public_version, field.name, value)
+                    publish_function = self.PublishMeta.find_publish_function(field.name, setattr)
+                    publish_function(public_version, field.name, value)
         
             # save the public version and update
             # state so we know everything is up-to-date
@@ -288,7 +303,8 @@ class Publishable(models.Model):
 
 if getattr(settings, 'TESTING_PUBLISH', False):
     # classes to test that publishing etc work ok
-    from django.utils.translation import ugettext_lazy as _    
+    from django.utils.translation import ugettext_lazy as _
+    from datetime import datetime
 
     class Site(models.Model):
         title = models.CharField(max_length=100)
@@ -322,21 +338,33 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     class Tag(models.Model):
         title = models.CharField(max_length=100, unique=True)
         slug = models.CharField(max_length=100)
-    
+   
+    # publishable model with a reverse relation to 
+    # page (as a child) 
     class PageBlock(Publishable):
         page=models.ForeignKey('Page')
         content = models.TextField(blank=True)
     
+    # non-publishable reverse relation to page (as a child)
+    class Comment(models.Model):
+        page=models.ForeignKey('Page')
+        comment = models.TextField()
+    
+    def update_pub_date(page, field_name, value):
+        # ignore value entirely and replace with now
+        setattr(page, field_name, update_pub_date.pub_date)
+    update_pub_date.pub_date = datetime.now()
+
     class Page(Publishable):
         slug = models.CharField(max_length=100, db_index=True)
         title = models.CharField(max_length=200)
         content = models.TextField(blank=True)
-        
+        pub_date = models.DateTimeField(default=datetime.now)        
+ 
         parent = models.ForeignKey('self', blank=True, null=True)
         
         authors = models.ManyToManyField(Author)
         log = models.ManyToManyField(ChangeLog)
-        
         tags = models.ManyToManyField(Tag, through='PageTagOrder')
 
         class Meta:
@@ -345,6 +373,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         class PublishMeta(Publishable.PublishMeta):
             publish_exclude_fields = ['log']
             publish_reverse_fields = ['pageblock_set']
+            publish_functions = { 'pub_date': update_pub_date }
 
         def get_absolute_url(self):
             if not self.parent:

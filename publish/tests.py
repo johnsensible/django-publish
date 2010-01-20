@@ -9,7 +9,8 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     from django.core.exceptions import PermissionDenied
     from django.http import Http404
 
-    from publish.models import Publishable, FlatPage, Site, Page, PageBlock, Author, Tag, PageTagOrder
+    from publish.models import Publishable, FlatPage, Site, Page, PageBlock, \
+                               Author, Tag, PageTagOrder, Comment, update_pub_date
     from publish.admin import PublishableAdmin
     from publish.actions import publish_selected, delete_selected, \
                                 _convert_all_published_to_html, _publish_status
@@ -517,6 +518,25 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             self.failUnlessEqual([], list(public.pageblock_set.all()))
 
+        def test_publish_delections_with_non_publishable_children(self):
+            self.page1.publish()
+
+            public = self.page1.public
+            comment = Comment.objects.create(page=public, comment='This is a comment')
+
+            self.failUnlessEqual(1, Comment.objects.count())
+
+            self.page1.delete()
+
+            public = Page.objects.get(id=public.id)
+            
+            self.failUnlessEqual([public], list(Page.objects.deleted()))
+
+            public.publish()
+            self.failUnlessEqual([], list(Page.objects.deleted()))
+            self.failUnlessEqual([], list(Page.objects.all()))
+            self.failUnlessEqual([], list(Comment.objects.all()))
+
     class TestPublishableRecursiveManyToManyField(TransactionTestCase):
 
         def setUp(self):
@@ -906,3 +926,23 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.page.publish()
             
             self.failUnlessEqual(set([self.tag1, self.tag2]), set(self.page.public.tags.all()))
+
+    class TestPublishFunction(TransactionTestCase):
+    
+        def setUp(self):
+            super(TestPublishFunction, self).setUp()
+            self.page = Page.objects.create(slug='page', title='Page')
+
+        def test_publish_function_invoked(self):
+            # check we can override default copy behaviour            
+
+            from datetime import datetime
+
+            pub_date = datetime(2000, 1, 1)
+            update_pub_date.pub_date = pub_date
+
+            self.failIfEqual(pub_date, self.page.pub_date)
+            
+            self.page.publish()
+            self.failIfEqual(pub_date, self.page.pub_date)
+            self.failUnlessEqual(pub_date, self.page.public.pub_date)
