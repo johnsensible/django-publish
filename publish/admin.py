@@ -47,7 +47,7 @@ class PublishableAdmin(admin.ModelAdmin):
    
     def has_publish_permission(self, request, obj=None):
         opts = self.opts
-        return request.user.has_perm(opts.app_label + '.' + self.model.PUBLISH_PERMISSION)
+        return request.user.has_perm(opts.app_label + '.' + opts.get_publish_permission())
  
     def change_view(self, request, object_id, extra_context=None):
         # override change_view to trap permission errors

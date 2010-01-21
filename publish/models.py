@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models.query import QuerySet, Q
+from django.db.models.base import ModelBase
 from django.conf import settings
 from django.db.models.fields.related import RelatedField
 
@@ -71,9 +72,25 @@ class PublishableManager(models.Manager):
         '''all public/published objects'''
         return self.get_query_set().published()
 
-_PUBLISH_PERMISSION = 'can_publish'
+
+class PublishableBase(ModelBase):
+    
+    def __new__(cls, name, bases, attrs):
+        new_class = super(PublishableBase, cls).__new__(cls, name, bases, attrs)
+        # insert an extra permission in for "Can publish"
+        # as well as a "method" to find name of publish_permission for this object
+        opts = new_class._meta
+        name = u'Can publish %s' % opts.verbose_name
+        code = u'publish_%s' % opts.object_name.lower()
+        opts.permissions = tuple(opts.permissions) + ((code, name), )
+        opts.get_publish_permission = lambda: code
+        
+        return new_class
+    
 
 class Publishable(models.Model):
+    __metaclass__ = PublishableBase
+
     PUBLISH_DEFAULT = 0
     PUBLISH_CHANGED = 1
     PUBLISH_DELETE  = 2
@@ -86,15 +103,12 @@ class Publishable(models.Model):
     Q_CHANGED   = Q(is_public=False, publish_state=PUBLISH_CHANGED)
     Q_DELETED   = Q(is_public=True, publish_state=PUBLISH_DELETE)
 
-    PUBLISH_PERMISSION = _PUBLISH_PERMISSION
-    
     is_public = models.BooleanField(default=False, editable=False, db_index=True)
     publish_state = models.IntegerField('Publication status', editable=False, db_index=True, choices=PUBLISH_CHOICES, default=PUBLISH_DEFAULT)
     public = models.OneToOneField('self', related_name='draft', null=True, editable=False)
     
     class Meta:
         abstract = True
-        permissions = ((_PUBLISH_PERMISSION, "Can Publish"),)
 
     class PublishMeta(object):
         publish_exclude_fields = ['id', 'is_public', 'publish_state', 'public', 'draft']

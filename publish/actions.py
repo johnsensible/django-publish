@@ -60,8 +60,21 @@ def _convert_all_published_to_html(modeladmin, all_published):
 
     return _to_html(all_published.nested_items())
 
-def _check_permissions(all_published, perms_needed):
-    pass
+def _check_permissions(modeladmin, all_published, request, perms_needed):
+    admin_site = modeladmin.admin_site
+
+    opts_seen = set()
+    for instance in all_published:
+        opts = instance._meta
+        if opts in opts_seen:
+            continue
+        opts_seen.add(opts)
+        
+        model = instance.__class__
+        other_modeladmin = admin_site._registry.get(model,None)
+        if other_modeladmin:
+            if not other_modeladmin.has_publish_permission(request):
+                perms_needed.add(opts.verbose_name)
 
 def publish_selected(modeladmin, request, queryset):
     opts = modeladmin.model._meta
@@ -75,8 +88,8 @@ def publish_selected(modeladmin, request, queryset):
         obj.publish(dry_run=True, all_published=all_published)
 
     perms_needed = set()
-    _check_permissions(all_published, perms_needed)
-
+    _check_permissions(modeladmin, all_published, request, perms_needed)
+    
     if request.POST.get('post'):
         if perms_needed:
             raise PermissionDenied
