@@ -813,12 +813,12 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         
         def setUp(self):
             super(TestPublishSelectedAction, self).setUp()
-            self.fp1 = FlatPage.objects.create(url='/fp1', title='FP1')
-            self.fp2 = FlatPage.objects.create(url='/fp2', title='FP2')
-            self.fp3 = FlatPage.objects.create(url='/fp3', title='FP3')
+            self.fp1 = Page.objects.create(slug='fp1', title='FP1')
+            self.fp2 = Page.objects.create(slug='fp2', title='FP2')
+            self.fp3 = Page.objects.create(slug='fp3', title='FP3')
 
             self.admin_site = AdminSite('Test Admin')
-            self.page_admin = PublishableAdmin(FlatPage, self.admin_site)
+            self.page_admin = PublishableAdmin(Page, self.admin_site)
             
             # override urls, so reverse works
             settings.ROOT_URLCONF=patterns('',
@@ -826,7 +826,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             )
 
         def test_publish_selected_confirm(self):
-            flatpages = FlatPage.objects.exclude(id=self.fp3.id)
+            pages = Page.objects.exclude(id=self.fp3.id)
             
             class dummy_request(object):
                 POST = {}
@@ -840,14 +840,14 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                     def get_and_delete_messages(cls):
                         return []
 
-            response = publish_selected(self.page_admin, dummy_request, flatpages)
+            response = publish_selected(self.page_admin, dummy_request, pages)
 
-            self.failIf(FlatPage.objects.published().count() > 0)
-            self.failUnless( response is not None)
+            self.failIf(Page.objects.published().count() > 0)
+            self.failUnless(response is not None)
             self.failUnlessEqual(200, response.status_code)
 
         def test_publish_selected_confirmed(self):
-            flatpages = FlatPage.objects.exclude(id=self.fp3.id)
+            pages = Page.objects.exclude(id=self.fp3.id)
             
             class dummy_request(object):
                 POST = {'post': True}
@@ -863,10 +863,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                             self._message = message
                     
 
-            response = publish_selected(self.page_admin, dummy_request, flatpages)
+            response = publish_selected(self.page_admin, dummy_request, pages)
                         
 
-            self.failUnlessEqual(2, FlatPage.objects.published().count())
+            self.failUnlessEqual(2, Page.objects.published().count())
             self.failUnless( getattr(self, '_message', None) is not None )
             self.failUnless( response is None )
 
@@ -881,8 +881,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             all_published.add(page) 
             all_published.add(block, parent=page)
 
-            page_admin = PublishableAdmin(Page, self.admin_site)
-            converted = _convert_all_published_to_html(page_admin, all_published)
+            converted = _convert_all_published_to_html(self.page_admin, all_published)
 
             expected = [u'<a href="../../publish/page/%d/">Page: Page object (Changed - not yet published)</a>' % page.id, [u'Page block: PageBlock object (Changed - not yet published)']]
 
@@ -897,11 +896,11 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             public = self.fp1.public
             self.fp1.delete()
-            public = FlatPage.objects.get(id=public.id)
+            public = Page.objects.get(id=public.id)
             self.failUnlessEqual(' (To be deleted)', _publish_status(public))
 
         def test_publish_selected_does_not_have_permission(self):
-            flatpages = FlatPage.objects.exclude(id=self.fp3.id)
+            pages = Page.objects.exclude(id=self.fp3.id)
             
             class dummy_request(object):
                 POST = {}
@@ -915,12 +914,39 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                     def get_and_delete_messages(cls):
                         return []
             try:
-                publish_selected(self.page_admin, dummy_request, flatpages)
+                publish_selected(self.page_admin, dummy_request, pages)
                 self.fail()
             except PermissionDenied:
                 pass
             
-            self.failIf(FlatPage.objects.published().count() > 0)
+            self.failIf(Page.objects.published().count() > 0)
+        
+        def test_publish_selected_does_not_have_related_permission(self):
+            # check we can't publish when we don't have permission
+            # for a related model (in this case authors)
+            self.admin_site.register(Author, PublishableAdmin)
+
+            author = Author.objects.create(name='John')
+            self.fp1.authors.add(author)
+
+            pages = Page.objects.draft()
+
+            class dummy_request(object):
+                POST = { 'post': True }
+
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, perm):
+                        return perm != 'publish.publish_author'
+            
+            try:
+                publish_selected(self.page_admin, dummy_request, pages)
+                self.fail()
+            except PermissionDenied:
+                pass
+            
+            self.failIf(Page.objects.published().count() > 0)
+
         
     class TestDeleteSelected(TransactionTestCase):
         
