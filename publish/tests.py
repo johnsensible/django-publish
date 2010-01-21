@@ -48,6 +48,23 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.nested.add('one2-1', parent='one2')
             self.nested.add('one2-2', parent='one2')
             self.failUnlessEqual(['one', ['one2', ['one2-1', 'one2-2']], 'two'], self.nested.nested_items())
+
+        def test_iter(self):
+            self.failUnlessEqual(set(), set(self.nested))
+            
+            self.nested.add('one')
+            self.failUnlessEqual(set(['one']), set(self.nested))
+
+            self.nested.add('two', parent='one')
+            self.failUnlessEqual(set(['one', 'two']), set(self.nested))
+
+            items = set(['one', 'two'])
+
+            for item in self.nested:
+                self.failUnless(item in items)
+                items.remove(item)
+            
+            self.failUnlessEqual(set(), items)
  
     class TestBasicPublishable(TransactionTestCase):
         

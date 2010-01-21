@@ -22,6 +22,9 @@ class NestedSet(object):
     def __len__(self):
         return len(self._children)
     
+    def __iter__(self):
+        return iter(self._children)
+
     def _add_nested_items(self, items, nested):
         for item in items:
             nested.append(item)
@@ -33,7 +36,7 @@ class NestedSet(object):
         children = []
         self._add_nested_items(self._children[item], children)
         return children
-
+    
     def nested_items(self):
         items = []
         self._add_nested_items(self._root_elements, items)
