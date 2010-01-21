@@ -831,10 +831,20 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             class dummy_request(object):
                 POST = {}
 
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, *arg):
+                        return True
+
+                    @classmethod
+                    def get_and_delete_messages(cls):
+                        return []
+
             response = publish_selected(self.page_admin, dummy_request, flatpages)
 
             self.failIf(FlatPage.objects.published().count() > 0)
             self.failUnless( response is not None)
+            self.failUnlessEqual(200, response.status_code)
 
         def test_publish_selected_confirmed(self):
             flatpages = FlatPage.objects.exclude(id=self.fp3.id)
@@ -843,12 +853,18 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 POST = {'post': True}
 
                 class user(object):
+                    @classmethod
+                    def has_perm(cls, *arg):
+                        return True
+        
                     class message_set(object):
                         @classmethod
                         def create(cls, message=None):
                             self._message = message
+                    
 
             response = publish_selected(self.page_admin, dummy_request, flatpages)
+                        
 
             self.failUnlessEqual(2, FlatPage.objects.published().count())
             self.failUnless( getattr(self, '_message', None) is not None )
@@ -883,6 +899,28 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.fp1.delete()
             public = FlatPage.objects.get(id=public.id)
             self.failUnlessEqual(' (To be deleted)', _publish_status(public))
+
+        def test_publish_selected_does_not_have_permission(self):
+            flatpages = FlatPage.objects.exclude(id=self.fp3.id)
+            
+            class dummy_request(object):
+                POST = {}
+
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, *arg):
+                        return False 
+
+                    @classmethod
+                    def get_and_delete_messages(cls):
+                        return []
+            try:
+                publish_selected(self.page_admin, dummy_request, flatpages)
+                self.fail()
+            except PermissionDenied:
+                pass
+            
+            self.failIf(FlatPage.objects.published().count() > 0)
         
     class TestDeleteSelected(TransactionTestCase):
         

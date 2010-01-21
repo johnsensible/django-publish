@@ -60,17 +60,27 @@ def _convert_all_published_to_html(modeladmin, all_published):
 
     return _to_html(all_published.nested_items())
 
+def _check_permissions(all_published, perms_needed):
+    pass
+
 def publish_selected(modeladmin, request, queryset):
-    # TODO check permission
-    
     opts = modeladmin.model._meta
     app_label = opts.app_label
     
+    if not modeladmin.has_publish_permission(request):
+        raise PermissionDenied
+
     all_published = NestedSet()
     for obj in queryset:
         obj.publish(dry_run=True, all_published=all_published)
 
+    perms_needed = set()
+    _check_permissions(all_published, perms_needed)
+
     if request.POST.get('post'):
+        if perms_needed:
+            raise PermissionDenied
+
         n = queryset.count()
         if n:
             queryset.publish()
@@ -84,6 +94,7 @@ def publish_selected(modeladmin, request, queryset):
         "title": _("Publish?"),
         "object_name": force_unicode(opts.verbose_name),
         "all_published": _convert_all_published_to_html(modeladmin, all_published),
+        "perms_lacking": perms_needed,
         'queryset': queryset,
         "opts": opts,
         "root_path": modeladmin.admin_site.root_path,

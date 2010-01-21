@@ -71,6 +71,8 @@ class PublishableManager(models.Manager):
         '''all public/published objects'''
         return self.get_query_set().published()
 
+_PUBLISH_PERMISSION = 'can_publish'
+
 class Publishable(models.Model):
     PUBLISH_DEFAULT = 0
     PUBLISH_CHANGED = 1
@@ -84,12 +86,15 @@ class Publishable(models.Model):
     Q_CHANGED   = Q(is_public=False, publish_state=PUBLISH_CHANGED)
     Q_DELETED   = Q(is_public=True, publish_state=PUBLISH_DELETE)
 
+    PUBLISH_PERMISSION = _PUBLISH_PERMISSION
+    
     is_public = models.BooleanField(default=False, editable=False, db_index=True)
     publish_state = models.IntegerField('Publication status', editable=False, db_index=True, choices=PUBLISH_CHOICES, default=PUBLISH_DEFAULT)
     public = models.OneToOneField('self', related_name='draft', null=True, editable=False)
     
     class Meta:
         abstract = True
+        permissions = ((_PUBLISH_PERMISSION, "Can Publish"),)
 
     class PublishMeta(object):
         publish_exclude_fields = ['id', 'is_public', 'publish_state', 'public', 'draft']

@@ -44,7 +44,11 @@ class PublishableAdmin(admin.ModelAdmin):
         if obj and obj.is_public:
             return False
         return super(PublishableAdmin, self).has_delete_permission(request, obj)
-    
+   
+    def has_publish_permission(self, request, obj=None):
+        opts = self.opts
+        return request.user.has_perm(opts.app_label + '.' + self.model.PUBLISH_PERMISSION)
+ 
     def change_view(self, request, object_id, extra_context=None):
         # override change_view to trap permission errors
         # and determine if the object being viewed is one
