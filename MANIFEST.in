@@ -1,5 +1,6 @@
 include README.rst
 include LICENSE
+recursive-include publish/templates *.html
 recursive-include tests *.py *.sh
 recursive-include examplecms *.py *.sh *.html
 
