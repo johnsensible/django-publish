@@ -249,10 +249,15 @@ class Publishable(models.Model):
             if field_object.rel.through:
                 # see if we can work out which reverse relationship this is
                 related_model = field_object.rel.through_model
-                related_name = field_object.related_query_name()
-                related_field = getattr(related_model, related_name).field
-                reverse_name = related_field.related.get_accessor_name()
-                reverse_fields_to_publish.append(reverse_name)
+                # this will be db name (e.g. with _id on end)
+                m2m_reverse_name = field_object.m2m_reverse_name()
+                for reverse_field in related_model._meta.fields:
+                    if reverse_field.column == m2m_reverse_name:
+                        related_name = reverse_field.name
+                        related_field = getattr(related_model, related_name).field
+                        reverse_name = related_field.related.get_accessor_name()
+                        reverse_fields_to_publish.append(reverse_name)
+                        break
                 continue # m2m via through table won't be dealt with here
                         
             related = field_object.rel.to
@@ -400,8 +405,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             return '%s%s/' % (self.parent.get_absolute_url(), self.slug)
     
     class PageTagOrder(Publishable):
-         page=models.ForeignKey(Page)
-         tag=models.ForeignKey(Tag)
-         tag_order=models.IntegerField()
+        # note these are named in non-standard way to
+        # ensure we are getting correct names
+        tagged_page=models.ForeignKey(Page)
+        page_tag=models.ForeignKey(Tag)
+        tag_order=models.IntegerField()
 
 
