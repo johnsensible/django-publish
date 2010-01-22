@@ -721,6 +721,14 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnless(self.page_admin.has_change_permission(dummy_request))
             self.failUnless(self.page_admin.has_change_permission(dummy_request, self.page1))
             self.failIf(self.page_admin.has_change_permission(dummy_request, self.page1.public))
+
+            # can view deleted public items
+            self.page1.public.publish_state = Publishable.PUBLISH_DELETE
+            self.failUnless(self.page_admin.has_change_permission(dummy_request, self.page1.public))
+
+            # but cannot modify them
+            dummy_request.method = 'POST'
+            self.failIf(self.page_admin.has_change_permission(dummy_request, self.page1.public))
  
         def test_has_delete_permission(self):
             class dummy_request(object):
@@ -735,30 +743,6 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnless(self.page_admin.has_delete_permission(dummy_request))
             self.failUnless(self.page_admin.has_delete_permission(dummy_request, self.page1))
             self.failIf(self.page_admin.has_delete_permission(dummy_request, self.page1.public))
-
-        def test_deleted_view_only_public_allowed(self):
-            request = None
-            try:
-                self.page_admin.deleted_view(request, str(self.page1.id))
-                fail()
-            except PermissionDenied:
-                pass
-
-        def test_deleted_view_only_deleted_found(self):
-            request = None
-            try:
-                self.page_admin.deleted_view(request, str(self.page1.public.id))
-                fail()
-            except Http404:
-                pass
-        
-        def test_deleted_view(self):
-            request = None
-            public1 = self.page1.public
-            self.page1.delete()
-            
-            response = self.page_admin.deleted_view(request, str(public1.id))
-            self.failUnless(response is not None)
         
         def test_change_view_normal(self):
             class dummy_request(object):
@@ -793,6 +777,9 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
         def test_change_view_deleted(self):
             class dummy_request(object):
+                method = 'GET'
+                REQUEST = {}
+                 
                 class user(object):
                     @classmethod
                     def has_perm(cls, permission):
@@ -808,6 +795,19 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             response = self.page_admin.change_view(dummy_request, str(public1.id))
             self.failUnless(response is not None)
             self.failUnless('deleted' in response.content)
+
+        def test_change_view_deleted_POST(self):
+            class dummy_request(object):
+                method = 'POST'
+                        
+            public1 = self.page1.public
+            self.page1.delete()
+
+            try:
+                self.page_admin.change_view(dummy_request, str(public1.id))
+                fail()
+            except PermissionDenied:
+                pass
      
     class TestPublishSelectedAction(TransactionTestCase):
         
