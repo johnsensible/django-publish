@@ -4,6 +4,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     import unittest
     from django.test import TransactionTestCase
     from django.contrib.admin.sites import AdminSite
+    from django.contrib.admin import StackedInline
     from django.forms.models import ModelChoiceField, ModelMultipleChoiceField
     from django.conf.urls.defaults import *
     from django.core.exceptions import PermissionDenied
@@ -632,7 +633,14 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.author2.publish()
 
             self.admin_site = AdminSite('Test Admin')
-            self.page_admin = PublishableAdmin(Page, self.admin_site)
+            
+            class PageBlockInline(StackedInline):
+                model = PageBlock
+
+            class PageAdmin(PublishableAdmin):
+                inlines = [PageBlockInline]
+
+            self.page_admin = PageAdmin(Page, self.admin_site)
 
         def test_queryset(self):
             # make sure we only get back draft objects
