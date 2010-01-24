@@ -10,6 +10,7 @@ class PageBlockInlineAdmin(admin.StackedInline):
 class PageAdmin(PublishableAdmin):
     inlines = [PageBlockInlineAdmin]
     prepopulated_fields = {"slug": ("title",)}
+    list_filter = ['publish_state', 'categories']
 
 class CategoryAdmin(PublishableAdmin):
     prepopulated_fields = {"slug": ("name",)}
