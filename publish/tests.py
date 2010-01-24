@@ -5,13 +5,15 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     from django.test import TransactionTestCase
     from django.contrib.admin.sites import AdminSite
     from django.contrib.admin import StackedInline
+    from django.contrib.admin.filterspecs import FilterSpec
     from django.forms.models import ModelChoiceField, ModelMultipleChoiceField
     from django.conf.urls.defaults import *
     from django.core.exceptions import PermissionDenied
     from django.http import Http404
-
+    
     from publish.models import Publishable, FlatPage, Site, Page, PageBlock, \
-                               Author, Tag, PageTagOrder, Comment, update_pub_date
+                               Author, Tag, PageTagOrder, Comment, update_pub_date, \
+                               PublishableRelatedFilterSpec
     from publish.admin import PublishableAdmin
     from publish.actions import publish_selected, delete_selected, \
                                 _convert_all_published_to_html, _publish_status
@@ -1035,3 +1037,35 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.page.publish()
             self.failIfEqual(pub_date, self.page.pub_date)
             self.failUnlessEqual(pub_date, self.page.public.pub_date)
+    
+    
+    class TestPublishableRelatedFilterSpec(TransactionTestCase):
+        
+        def test_overridden_spec(self):
+            # make sure the publishable filter spec
+            # gets used when we use a publishable field
+            class dummy_request(object):
+                GET = {}
+            
+            spec = FilterSpec.create(Page._meta.get_field('authors'), dummy_request, {}, Page, PublishableAdmin)
+            self.failUnless(isinstance(spec, PublishableRelatedFilterSpec))
+        
+        def test_only_draft_shown(self):
+            self.author = Author.objects.create(name='author')
+            self.author.publish()
+            
+            self.failUnless(2, Author.objects.count())
+            
+            # make sure the publishable filter spec
+            # gets used when we use a publishable field
+            class dummy_request(object):
+                GET = {}
+            
+            spec = FilterSpec.create(Page._meta.get_field('authors'), dummy_request, {}, Page, PublishableAdmin)
+            
+            lookup_choices = spec.lookup_choices
+            self.failUnlessEqual(1, len(lookup_choices))
+            pk, label = lookup_choices[0]
+            self.failUnlessEqual(self.author.id, pk)
+            
+            
