@@ -6,9 +6,16 @@
 <h1>{% if not page.is_public %}(DRAFT){% endif %}{{ page.title }}</h1>
 
 {% for block in page.pageblock_set.all %}
-<div>
-{{ block.content }}
-</div>
+    {% if block.content %}
+    <div>
+    {{ block.content }}
+    </div>
+    {% endif %}
+    {% if block.image %}
+    <div>
+    <img src="{{ block.image.image.url }}" />
+    </div>
+    {% endif %}
 {% endfor %}
 
 <div>

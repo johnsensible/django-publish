@@ -25,6 +25,28 @@ def _make_adminform_readonly(adminform, inline_admin_formsets):
         for form in admin_formset.formset.forms:
             _make_form_readonly(form)
 
+def _draft_queryset(db_field, kwargs):
+    # see if we need to filter the field's queryset
+    model = db_field.rel.to
+    if issubclass(model, Publishable):
+        kwargs['queryset'] = model._default_manager.draft()
+
+def attach_filtered_formfields(admin_class):
+    # class decorator to add in extra methods that 
+    # are common to several classes
+    super_formfield_for_foreignkey = admin_class.formfield_for_foreignkey
+    def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
+        _draft_queryset(db_field, kwargs)
+        return super_formfield_for_foreignkey(self, db_field, request, **kwargs)
+    admin_class.formfield_for_foreignkey = formfield_for_foreignkey
+    
+    super_formfield_for_manytomany = admin_class.formfield_for_manytomany
+    def formfield_for_manytomany(self, db_field, request=None, **kwargs):
+        _draft_queryset(db_field, kwargs)
+        return super_formfield_for_manytomany(self, db_field, request, **kwargs)
+    admin_class.formfield_for_manytomany = formfield_for_manytomany
+    return admin_class
+
 class PublishableAdmin(admin.ModelAdmin):
     
     actions = [publish_selected, delete_selected]
@@ -78,17 +100,12 @@ class PublishableAdmin(admin.ModelAdmin):
         
         return super(PublishableAdmin, self).render_change_form(request, context, add, change, form_url, obj)
 
-    def _draft_queryset(self, db_field, kwargs):
-        # see if we need to filter the field's queryset
-        model = db_field.rel.to
-        if issubclass(model, Publishable):
-            kwargs['queryset'] = model._default_manager.draft()
+class PublishableStackedInline(admin.StackedInline):
+    pass
 
-    def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
-        self._draft_queryset(db_field, kwargs)
-        return super(PublishableAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
-    
-    def formfield_for_manytomany(self, db_field, request=None, **kwargs):
-        self._draft_queryset(db_field, kwargs)
-        return super(PublishableAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
+class PublishableTabularInline(admin.TabularInline):
+    pass
 
+# add in extra methods
+for admin_class in [PublishableAdmin, PublishableStackedInline, PublishableTabularInline]:
+    attach_filtered_formfields(admin_class)

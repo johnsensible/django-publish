@@ -32,7 +32,15 @@ class Page(Publishable):
 
 class PageBlock(Publishable):
     page = models.ForeignKey(Page)
-    content = models.TextField(blank=False)
+    content = models.TextField(blank=True)
+    image = models.ForeignKey('Image', blank=True, null=True)
+
+class Image(Publishable):
+    title = models.CharField(max_length=100)
+    image = models.ImageField(upload_to='images/')
+    
+    def __unicode__(self):
+        return self.title
 
 class Category(Publishable):
     name = models.CharField(max_length=200)

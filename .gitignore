@@ -1,5 +1,6 @@
 .coverage
 dist
+examplecms/media
 django_publish.egg-info
 tags
 *.pyc

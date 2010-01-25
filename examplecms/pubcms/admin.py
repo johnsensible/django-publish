@@ -1,9 +1,9 @@
 from django.contrib import admin
 
-from publish.admin import PublishableAdmin
-from pubcms.models import Page, PageBlock, Category
+from publish.admin import PublishableAdmin, PublishableStackedInline
+from pubcms.models import Page, PageBlock, Category, Image
 
-class PageBlockInlineAdmin(admin.StackedInline):
+class PageBlockInlineAdmin(PublishableStackedInline):
     model = PageBlock
     extra = 1
 
@@ -17,4 +17,5 @@ class CategoryAdmin(PublishableAdmin):
 
 admin.site.register(Page, PageAdmin)
 admin.site.register(Category, CategoryAdmin)
+admin.site.register(Image, PublishableAdmin)
 
