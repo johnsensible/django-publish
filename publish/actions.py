@@ -23,11 +23,9 @@ delete_selected.short_description = "Mark %(verbose_name_plural)s for deletion"
 
 def _publish_status(model):
     state = model.get_publish_state_display()
-    if state:
-        if not model.is_public and not model.public:
-            state = '%s - not yet published' % state
-        return ' (%s)' % state
-    return ''
+    if not model.is_public and not model.public:
+        state = '%s - not yet published' % state
+    return ' (%s)' % state
 
 def _convert_all_published_to_html(modeladmin, all_published):
     admin_site = modeladmin.admin_site
