@@ -920,7 +920,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         def test_publish_status(self):
             self.failUnlessEqual(' (Changed - not yet published)', _publish_status(self.fp1))
             self.fp1.publish()
-            self.failUnlessEqual('', _publish_status(self.fp1))
+            self.failUnlessEqual(' (Published)', _publish_status(self.fp1))
             self.fp1.save()
             self.failUnlessEqual(' (Changed)', _publish_status(self.fp1))
             
