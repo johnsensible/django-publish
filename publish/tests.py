@@ -977,6 +977,36 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             self.failIf(Page.objects.published().count() > 0)
 
+        def test_publish_selected_logs_publication(self):
+            self.admin_site.register(Page, PublishableAdmin)
+
+            pages = Page.objects.exclude(id=self.fp3.id)
+
+            class dummy_request(object):
+                POST = { 'post': True }
+
+                class user(object):
+                    pk = 1
+                    
+                    @classmethod
+                    def has_perm(cls, perm):
+                        return perm != 'publish.publish_author'
+
+                    class message_set(object):
+                        @classmethod
+                        def create(cls, message=None):
+                            pass
+
+            publish_selected(self.page_admin, dummy_request, pages)
+
+            # should have logged two publications
+            from django.contrib.admin.models import LogEntry
+            from django.contrib.contenttypes.models import ContentType
+            
+            content_type_id = ContentType.objects.get_for_model(self.fp1).pk
+            self.failUnlessEqual(2, LogEntry.objects.filter().count())
+
+
     class TestDeleteSelected(TransactionTestCase):
         
         def setUp(self):

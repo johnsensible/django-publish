@@ -5,6 +5,8 @@ from django.db.models.fields.related import RelatedField
 from django.conf import settings
 from django.db.models.fields.related import RelatedField
 from django.contrib.admin.filterspecs import FilterSpec, RelatedFilterSpec
+from django.contrib.admin.models import LogEntry
+from django.contrib.contenttypes.models import ContentType
 from django.utils.encoding import smart_unicode
 
 from utils import NestedSet
@@ -185,11 +187,19 @@ class Publishable(models.Model):
             self.publish_state = Publishable.PUBLISH_CHANGED
         super(Publishable, self).save(*arg, **kw)
     
+    def _copy_over_log_entries(self, object):
+        # preserve the logs for this object
+        content_type_id = ContentType.objects.get_for_model(object).id
+        
+        entries = LogEntry.objects.filter(object_id = self.pk, content_type__id__exact = content_type_id)
+        entries.update(object_id = object.pk)
+
     def delete(self):
         if self.public:
             # mark public version for future deletion
             self.public.publish_state = Publishable.PUBLISH_DELETE
             self.public.save()
+            self._copy_over_log_entries(self.public) 
         super(Publishable, self).delete()
 
     def publish(self, dry_run=False, all_published=None):
