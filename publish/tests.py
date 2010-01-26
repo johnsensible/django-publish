@@ -12,9 +12,9 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     from django.http import Http404
     
     from publish.models import Publishable, FlatPage, Site, Page, PageBlock, \
-                               Author, Tag, PageTagOrder, Comment, update_pub_date, \
-                               PublishableRelatedFilterSpec
-    from publish.admin import PublishableAdmin
+                               Author, Tag, PageTagOrder, Comment, update_pub_date
+                               
+    from publish.admin import PublishableAdmin, PublishableRelatedFilterSpec
     from publish.actions import publish_selected, delete_selected, \
                                 _convert_all_published_to_html, _publish_status
     from publish.utils import NestedSet
@@ -639,6 +639,21 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             self.failUnlessEqual(5, Page.objects.draft().count())
             self.failUnlessEqual(5, Page.objects.published().count())
+
+        def test_publish_select_with_overlapping_models_published(self):
+            # make sure when we publish we don't accidentally create
+            # multiple published versions
+            self.failUnlessEqual(5, Page.objects.draft().count())
+            self.failUnlessEqual(0, Page.objects.published().count())
+            
+            all_published = NestedSet()
+            Page.objects.draft().publish(all_published)
+            
+            self.failUnlessEqual(5, len(all_published))
+
+            self.failUnlessEqual(5, Page.objects.draft().count())
+            self.failUnlessEqual(5, Page.objects.published().count())
+
 
     class TestPublishableAdmin(TransactionTestCase):
         
