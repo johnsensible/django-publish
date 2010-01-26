@@ -122,7 +122,7 @@ class Publishable(models.Model):
     PUBLISH_CHANGED = 1
     PUBLISH_DELETE  = 2
 
-    PUBLISH_CHOICES = ((PUBLISH_DEFAULT, ''), (PUBLISH_CHANGED, 'Changed'), (PUBLISH_DELETE, 'To be deleted'))
+    PUBLISH_CHOICES = ((PUBLISH_DEFAULT, 'Published'), (PUBLISH_CHANGED, 'Changed'), (PUBLISH_DELETE, 'To be deleted'))
 
     # make these available here so can easily re-use them in other code
     Q_PUBLISHED = Q(is_public=True)
