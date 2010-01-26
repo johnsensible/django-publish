@@ -61,9 +61,10 @@ class PublishableQuerySet(QuerySet):
         return self.filter(Publishable.Q_PUBLISHED)
 
     def publish(self):
-        '''publish all models in this queryset and return a list of the published versions'''
+        '''publish all models in this queryset'''
+        all_published = NestedSet()
         for p in self:
-            p.publish()
+            p.publish(all_published=all_published)
     
     def delete(self):
         '''

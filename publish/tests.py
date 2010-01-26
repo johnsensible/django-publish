@@ -620,6 +620,26 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         def test_publish_recursion_breaks(self):
             self.page1.publish() # this should simple run without an error
 
+    class TestOverlappingPublish(TransactionTestCase):
+
+        def setUp(self):
+            self.page1 = Page.objects.create(slug='page1', title='page 1')
+            self.page2 = Page.objects.create(slug='page2', title='page 2')
+            self.child1 = Page.objects.create(parent=self.page1, slug='child1', title='Child 1')
+            self.child2 = Page.objects.create(parent=self.page1, slug='child2', title='Child 2')
+            self.child3 = Page.objects.create(parent=self.page2, slug='child3', title='Child 3')
+        
+        def test_publish_select_with_overlapping_models(self):
+            # make sure when we publish we don't accidentally create
+            # multiple published versions
+            self.failUnlessEqual(5, Page.objects.draft().count())
+            self.failUnlessEqual(0, Page.objects.published().count())
+            
+            Page.objects.draft().publish()
+            
+            self.failUnlessEqual(5, Page.objects.draft().count())
+            self.failUnlessEqual(5, Page.objects.published().count())
+
     class TestPublishableAdmin(TransactionTestCase):
         
         def setUp(self):
@@ -957,7 +977,6 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             self.failIf(Page.objects.published().count() > 0)
 
-        
     class TestDeleteSelected(TransactionTestCase):
         
         def setUp(self):
