@@ -60,9 +60,10 @@ class PublishableQuerySet(QuerySet):
         '''all public/published objects'''
         return self.filter(Publishable.Q_PUBLISHED)
 
-    def publish(self):
+    def publish(self, all_published=None):
         '''publish all models in this queryset'''
-        all_published = NestedSet()
+        if all_published is None:
+            all_published = NestedSet()
         for p in self:
             p.publish(all_published=all_published)
     

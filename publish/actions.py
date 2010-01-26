@@ -96,7 +96,11 @@ def publish_selected(modeladmin, request, queryset):
 
         n = queryset.count()
         if n:
-            queryset.publish()
+            all_published = NestedSet()
+            queryset.publish(all_published)
+            for object in all_published:
+                modeladmin.log_publication(request, object)
+
             modeladmin.message_user(request, _("Successfully published %(count)d %(items)s.") % {
                 "count": n, "items": model_ngettext(modeladmin.opts, n)
             })

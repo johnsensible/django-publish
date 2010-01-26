@@ -89,6 +89,15 @@ class PublishableAdmin(admin.ModelAdmin):
         opts = self.opts
         return request.user.has_perm(opts.app_label + '.' + opts.get_publish_permission())
     
+    def log_publication(self, request, object):
+        # only log objects that we should
+        if isinstance(object, Publishable):
+            model = object.__class__
+            other_modeladmin = self.admin_site._registry.get(model, None)
+            if other_modeladmin: 
+                # just log as a change
+                self.log_change(request, object, 'Published')
+
     def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
         if obj and obj.publish_state == Publishable.PUBLISH_DELETE:
             adminform, inline_admin_formsets = context['adminform'], context['inline_admin_formsets']
