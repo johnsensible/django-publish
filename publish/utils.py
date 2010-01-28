@@ -25,6 +25,15 @@ class NestedSet(object):
     def __iter__(self):
         return iter(self._children)
 
+    def original(self, item):
+        # return the original item added
+        # or this item if that's not the case
+        for child in self:
+            if child == item:
+                return child
+        return item
+            
+
     def _add_nested_items(self, items, nested):
         for item in items:
             nested.append(item)
