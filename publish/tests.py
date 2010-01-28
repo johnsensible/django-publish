@@ -68,6 +68,29 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 items.remove(item)
             
             self.failUnlessEqual(set(), items)
+        
+        def test_original(self):
+            class MyObject(object):
+                def __init__(self, obj):
+                    self.obj = obj
+                
+                def __eq__(self, other):
+                    return self.obj == other.obj
+                
+                def __hash__(self):
+                    return hash(self.obj)            
+
+            # should always return an item at least
+            self.failUnlessEqual(MyObject('hi there'), self.nested.original(MyObject('hi there')))
+
+            m1 = MyObject('m1')
+            self.nested.add(m1)
+
+            self.failUnlessEqual(id(m1), id(self.nested.original(m1)))
+            self.failUnlessEqual(id(m1), id(self.nested.original(MyObject('m1'))))
+            
+
+            
  
     class TestBasicPublishable(TransactionTestCase):
         
@@ -687,9 +710,9 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
             self.failUnlessEqual(None, page1.public.parent)
             self.failUnlessEqual(None, page2.public.parent)
-            self.failUnlessEqual(self.page1.public, child1.public.parent)
-            self.failUnlessEqual(self.page1.public, child2.public.parent)
-            self.failUnlessEqual(self.page2.public, child3.public.parent)
+            self.failUnlessEqual(page1.public, child1.public.parent)
+            self.failUnlessEqual(page1.public, child2.public.parent)
+            self.failUnlessEqual(page2.public, child3.public.parent)
 
     class TestPublishableAdmin(TransactionTestCase):
         
