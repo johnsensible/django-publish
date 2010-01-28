@@ -160,6 +160,7 @@ class Publishable(models.Model):
     def save(self, mark_changed=True, *arg, **kw):
         if not self.is_public and mark_changed:
             self.publish_state = Publishable.PUBLISH_CHANGED
+
         super(Publishable, self).save(*arg, **kw)
     
     def _copy_over_log_entries(self, object):
@@ -214,7 +215,8 @@ class Publishable(models.Model):
             all_published = NestedSet()
 
         if self in all_published:
-            return self.public
+            return all_published.original(self).public
+        
         all_published.add(self, parent=parent)        
 
         public_version = self.public
