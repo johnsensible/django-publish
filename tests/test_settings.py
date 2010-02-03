@@ -19,4 +19,4 @@ TESTING_PUBLISH=True
 # enable this for coverage (using django test coverage
 # http://pypi.python.org/pypi/django-test-coverage )
 TEST_RUNNER = 'django-test-coverage.runner.run_tests'
-COVERAGE_MODULES = ('publish.models', 'publish.admin', 'publish.actions', 'publish.utils')
+COVERAGE_MODULES = ('publish.models', 'publish.admin', 'publish.actions', 'publish.utils', 'publish.signals')

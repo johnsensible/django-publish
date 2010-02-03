@@ -8,6 +8,7 @@ from django.contrib.admin.models import LogEntry
 from django.contrib.contenttypes.models import ContentType
 
 from utils import NestedSet
+from signals import pre_publish, post_publish
 
 # this takes some inspiration from the publisher stuff in
 # django-cms 2.0
@@ -178,6 +179,20 @@ class Publishable(models.Model):
             self._copy_over_log_entries(self.public) 
         super(Publishable, self).delete()
 
+    def _pre_publish(self, dry_run, all_published):
+        if not dry_run:
+            sender = self.__class__
+            pre_publish.send(sender=sender, instance=self)
+
+    def _post_publish(self, dry_run, all_published):
+        if not dry_run:
+            # we need to make sure we get the instance that actually
+            # got published (in case it was indirectly published elsewhere)
+            sender = self.__class__
+            instance = all_published.original(self)
+            post_publish.send(sender=sender, instance=instance)
+
+
     def publish(self, dry_run=False, all_published=None):
         '''
         either publish changes or deletions, depending on
@@ -186,11 +201,12 @@ class Publishable(models.Model):
         public models will be examined to see if they need deleting
         and deleted if so.
         '''
+
         if self.is_public:
             self.publish_deletions(dry_run=dry_run, all_published=all_published)
         else:
             self.publish_changes(dry_run=dry_run, all_published=all_published)
-
+        
     def _get_public_or_publish_changes(self, *arg, **kw):
         # only publish if we don't yet have an id for the
         # public model
@@ -216,8 +232,10 @@ class Publishable(models.Model):
 
         if self in all_published:
             return all_published.original(self).public
-        
+
         all_published.add(self, parent=parent)        
+
+        self._pre_publish(dry_run, all_published)
 
         public_version = self.public
         if not public_version:
@@ -303,6 +321,8 @@ class Publishable(models.Model):
                         deleted_items = getattr(self.public, name).deleted()
                         for deleted_item in deleted_items:
                             deleted_item.publish_deletions(dry_run=dry_run, all_published=all_published, parent=self)
+        
+        self._post_publish(dry_run, all_published)
 
         return public_version
     
@@ -323,6 +343,8 @@ class Publishable(models.Model):
         
         all_published.add(self, parent=parent)
 
+        self._pre_publish(dry_run, all_published)
+
         for related in self._meta.get_all_related_objects():
             if not issubclass(related.model, Publishable):
                 continue
@@ -338,6 +360,8 @@ class Publishable(models.Model):
         
         if not dry_run:
             self.delete()
+
+        self._post_publish(dry_run, all_published)
 
 
 if getattr(settings, 'TESTING_PUBLISH', False):
