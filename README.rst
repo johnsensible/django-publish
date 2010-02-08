@@ -113,6 +113,7 @@ Finer control
 You can further control the publication process by providing a `PublishMeta` class on your model
 
 ::
+
     from publish.models import Publishable
     from django.db import models
 
