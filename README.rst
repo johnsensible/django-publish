@@ -89,6 +89,50 @@ The latter form is handy, as the ``Q`` object can be passed in as a paramter to 
 
 In addition to modifying your views, you may want to consider changing any ``get_absolute_url`` functions to correctly return the relevant URL for viewing the object - taking into account whether it is a published or draft object (using the ``is_public`` field).  The ``PublishableAdmin`` class automatically provides a link to the published (View on site) and draft (Preview on site) versions if a model has implemented ``get_absolute_url``.
 
+Signals
+=======
+
+There are two signals that can be listened to during the publish process:
+
+* `publish.signals.pre_publish`
+* `publish.signals.post_publish`
+
+The handlers for these signals should have the form
+
+::
+
+    def post_publish_handler(sender, instance, **kw):
+
+Where instance will be the object being published - much as with the built-in Django signals pre_save and post_save.  Note though that publishnig an object may trigger multiple pre and post publish signals, depending on what other objects also need publishing.  Note however that you should not receive the same signal for the same object - only for different objects.
+
+The signals are triggered both for publishing changes and publishing deletions.  When a change is published you will receive the draft object as the instance.  When a deletion is published you will receive the public instance (as that is what is being deleted).
+
+Finer control
+=============
+
+You can further control the publication process by providing a `PublishMeta` class on your model
+
+::
+    from publish.models import Publishable
+    from django.db import models
+
+    class Page(Publishable):
+        title = models.CharField(max_length=100)
+        slug  = models.SlugField(max_length=100)
+        body  = models.TextField()
+        notes = models.TextField(blank=True)
+
+        class PublishMeta(Publishable.PublishableMeta):
+            publish_exclude_fields = ['notes']
+
+In the above class the "notes" field will be excluded from publication - it will not be copied to the public copy.
+
+There are two other fields that can be specified:
+
+* `publish_reverse_fields` - list of reverse/child relationships to publish
+* `publish_functions` - dictionary of 'fieldname' : publish_function (same format as setattr)
+
+Publish functions are useful if you need to run some additional action when publishing an object.  For example you may want copy a file to a public location or subtly modify a value as it gets copied.  A publish function is expected to work the same as the built-in `setattr`, but may (and probably will) have other side-effects.
 
 Notes
 =====
