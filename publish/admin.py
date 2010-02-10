@@ -123,6 +123,8 @@ class PublishableAdmin(admin.ModelAdmin):
                 self.log_change(request, object, 'Published')
 
     def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
+        context['has_publish_permission'] = self.has_publish_permission(request, obj)
+
         if obj and obj.publish_state == Publishable.PUBLISH_DELETE:
             adminform, inline_admin_formsets = context['adminform'], context['inline_admin_formsets']
             _make_adminform_readonly(adminform, inline_admin_formsets)
