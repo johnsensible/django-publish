@@ -179,18 +179,18 @@ class Publishable(models.Model):
             self._copy_over_log_entries(self.public) 
         super(Publishable, self).delete()
 
-    def _pre_publish(self, dry_run, all_published):
+    def _pre_publish(self, dry_run, all_published, deleted=False):
         if not dry_run:
             sender = self.__class__
-            pre_publish.send(sender=sender, instance=self)
+            pre_publish.send(sender=sender, instance=self, deleted=deleted)
 
-    def _post_publish(self, dry_run, all_published):
+    def _post_publish(self, dry_run, all_published, deleted=False):
         if not dry_run:
             # we need to make sure we get the instance that actually
             # got published (in case it was indirectly published elsewhere)
             sender = self.__class__
             instance = all_published.original(self)
-            post_publish.send(sender=sender, instance=instance)
+            post_publish.send(sender=sender, instance=instance, deleted=deleted)
 
 
     def publish(self, dry_run=False, all_published=None):
@@ -343,7 +343,7 @@ class Publishable(models.Model):
         
         all_published.add(self, parent=parent)
 
-        self._pre_publish(dry_run, all_published)
+        self._pre_publish(dry_run, all_published, deleted=True)
 
         for related in self._meta.get_all_related_objects():
             if not issubclass(related.model, Publishable):
@@ -361,7 +361,7 @@ class Publishable(models.Model):
         if not dry_run:
             self.delete()
 
-        self._post_publish(dry_run, all_published)
+        self._post_publish(dry_run, all_published, deleted=True)
 
 
 if getattr(settings, 'TESTING_PUBLISH', False):

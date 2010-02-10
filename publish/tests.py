@@ -1259,3 +1259,38 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
             self.failUnlessEqual(set([self.page1, self.child1]), set(pre_published))
             self.failUnlessEqual(set([self.page1, self.child1]), set(published))
+        
+        def test_deleted_flag_false_when_publishing_change(self):
+            def pre_publish_handler(sender, instance, deleted, **kw):
+                self.failIf(deleted)          
+
+            pre_publish.connect(pre_publish_handler, sender=Page)
+
+            def post_publish_handler(sender, instance, deleted, **kw):
+                self.failIf(deleted)
+            
+            post_publish.connect(post_publish_handler, sender=Page)
+            
+            self.page1.publish()
+
+        def test_deleted_flag_true_when_publishing_deletion(self):
+            self.child1.publish()
+            public = self.child1.public
+            
+            self.child1.delete()
+            public = Page.objects.get(id=public.id)
+
+            self.failUnlessEqual(Publishable.PUBLISH_DELETE, public.publish_state)
+
+            def pre_publish_handler(sender, instance, deleted, **kw):
+                self.failUnless(deleted)          
+
+            pre_publish.connect(pre_publish_handler, sender=Page)
+
+            def post_publish_handler(sender, instance, deleted, **kw):
+                self.failUnless(deleted)
+            
+            post_publish.connect(post_publish_handler, sender=Page)
+            
+            public.publish()
+

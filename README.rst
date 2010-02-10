@@ -2,7 +2,7 @@
 Django Publish
 ==============
 
-Handy mixin/abstract class for providing a "publisher workflow" to arbitrary Django models.
+Handy mixin/abstract class for providing a "publisher workflow" to arbitrary Django_ models.
 
 Overview
 ========
@@ -94,23 +94,25 @@ Signals
 
 There are two signals that can be listened to during the publish process:
 
-* `publish.signals.pre_publish`
-* `publish.signals.post_publish`
+* ``publish.signals.pre_publish``
+* ``publish.signals.post_publish``
 
 The handlers for these signals should have the form
 
 ::
 
-    def post_publish_handler(sender, instance, **kw):
+    def post_publish_handler(sender, instance, deleted, **kw):
 
-Where instance will be the object being published - much as with the built-in Django signals pre_save and post_save.  Note though that publishnig an object may trigger multiple pre and post publish signals, depending on what other objects also need publishing.  Note however that you should not receive the same signal for the same object - only for different objects.
+Where ``instance`` will be the object being published - much as with the built-in Django signals pre_save_ and post_save_.  Note though that publishing an object may trigger multiple pre and post publish signals, depending on what other objects also need publishing.  However that you should not receive the same signal for the same object - only for different objects.
 
-The signals are triggered both for publishing changes and publishing deletions.  When a change is published you will receive the draft object as the instance.  When a deletion is published you will receive the public instance (as that is what is being deleted).
+The signals are triggered both for publishing changes and publishing deletions.  When a change is published you will receive the draft object as the instance and ``deleted`` will be ``False``.  When a deletion is published you will receive the public instance (as that is what is being deleted) and ``deleted`` will be set to ``True``.
+
+As with the post_delete_ signal in Django you will need to take care when using the instance if ``deleted`` is ``True``, as the object will no longer exist in the database.
 
 Finer control
 =============
 
-You can further control the publication process by providing a `PublishMeta` class on your model
+You can further control the publication process by providing a ``PublishMeta`` class on your model
 
 ::
 
@@ -130,15 +132,15 @@ In the above class the "notes" field will be excluded from publication - it will
 
 There are two other fields that can be specified:
 
-* `publish_reverse_fields` - list of reverse/child relationships to publish
-* `publish_functions` - dictionary of 'fieldname' : publish_function (same format as setattr)
+* ``publish_reverse_fields`` - list of reverse/child relationships to publish
+* ``publish_functions`` - dictionary of 'fieldname' : publish_function (same format as setattr)
 
-Publish functions are useful if you need to run some additional action when publishing an object.  For example you may want copy a file to a public location or subtly modify a value as it gets copied.  A publish function is expected to work the same as the built-in `setattr`, but may (and probably will) have other side-effects.
+Publish functions are useful if you need to run some additional action when publishing an object.  For example you may want copy a file to a public location or subtly modify a value as it gets copied.  A publish function is expected to work the same as the built-in ``setattr``, but may (and probably will) have other side-effects.
 
 Notes
 =====
 
-* ManyToManyField's specified using a "through" model will be treated as a regular reverse relationship, but will automatically be published (no need to specify it via ``PublishableMeta.publish_reverse_fields``)
+* A ManyToManyField_ specified using a "through" model will be treated as a regular reverse relationship, but will automatically be published (no need to specify it via ``PublishableMeta.publish_reverse_fields``)
 
 Tests
 =====
@@ -150,4 +152,8 @@ To run the tests for this app use the script:
     tests/run_tests.sh
 
 
-
+.. _Django: http://www.djangoproject.com/
+.. _pre_save: http://docs.djangoproject.com/en/dev/ref/signals/#pre-save
+.. _post_save: http://docs.djangoproject.com/en/dev/ref/signals/#post-save
+.. _post_delete: http://docs.djangoproject.com/en/dev/ref/signals/#django.db.models.signals.post_delete
+.. _ManyToManyField: http://docs.djangoproject.com/en/dev/ref/models/fields/#manytomanyfield
