@@ -113,6 +113,12 @@ class PublishableAdmin(admin.ModelAdmin):
         opts = self.opts
         return request.user.has_perm(opts.app_label + '.' + opts.get_publish_permission())
     
+    def get_publish_status_display(self, obj):
+        state = obj.get_publish_state_display()
+        if not obj.is_public and not obj.public:
+            state = '%s - not yet published' % state
+        return state
+
     def log_publication(self, request, object):
         # only log objects that we should
         if isinstance(object, Publishable):

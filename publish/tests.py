@@ -16,7 +16,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                                
     from publish.admin import PublishableAdmin, PublishableRelatedFilterSpec
     from publish.actions import publish_selected, delete_selected, \
-                                _convert_all_published_to_html, _publish_status
+                                _convert_all_published_to_html 
     from publish.utils import NestedSet
     from publish.signals import pre_publish, post_publish
     
@@ -738,6 +738,19 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 inlines = [PageBlockInline]
 
             self.page_admin = PageAdmin(Page, self.admin_site)
+        
+        def test_get_publish_status_display(self):
+            page = Page.objects.create(slug="hhkkk", title="hjkhjkh")
+            self.failUnlessEqual('Changed - not yet published', self.page_admin.get_publish_status_display(page))
+            page.publish()
+            self.failUnlessEqual('Published', self.page_admin.get_publish_status_display(page))
+            page.save()
+            self.failUnlessEqual('Changed', self.page_admin.get_publish_status_display(page))
+            
+            public = page.public
+            page.delete()
+            public = Page.objects.get(id=public.id)
+            self.failUnlessEqual('To be deleted', self.page_admin.get_publish_status_display(public))
 
         def test_queryset(self):
             # make sure we only get back draft objects
@@ -986,24 +999,12 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             all_published.add(page) 
             all_published.add(block, parent=page)
 
-            converted = _convert_all_published_to_html(self.page_admin, all_published)
+            converted = _convert_all_published_to_html(self.admin_site, all_published)
 
-            expected = [u'<a href="../../publish/page/%d/">Page: Page object (Changed - not yet published)</a>' % page.id, [u'Page block: PageBlock object (Changed - not yet published)']]
+            expected = [u'<a href="../../publish/page/%d/">Page: Page object (Changed - not yet published)</a>' % page.id, [u'Page block: PageBlock object']]
 
             self.failUnlessEqual(expected, converted)
         
-        def test_publish_status(self):
-            self.failUnlessEqual(' (Changed - not yet published)', _publish_status(self.fp1))
-            self.fp1.publish()
-            self.failUnlessEqual(' (Published)', _publish_status(self.fp1))
-            self.fp1.save()
-            self.failUnlessEqual(' (Changed)', _publish_status(self.fp1))
-            
-            public = self.fp1.public
-            self.fp1.delete()
-            public = Page.objects.get(id=public.id)
-            self.failUnlessEqual(' (To be deleted)', _publish_status(public))
-
         def test_publish_selected_does_not_have_permission(self):
             pages = Page.objects.exclude(id=self.fp3.id)
             

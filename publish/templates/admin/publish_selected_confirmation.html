@@ -12,7 +12,7 @@
 
 {% block content %}
 {% if perms_lacking %}
-    <p>{% blocktrans %}Publishing the {{ object_name }} would result in publishing related objects, but your account doesn't have permission to  publish the following types of objects:{% endblocktrans %}</p>
+    <p>{% blocktrans %}Your account doesn't have permission to publish the following objects:{% endblocktrans %}</p>
     <ul>
     {% for obj in perms_lacking %}
         <li>{{ obj }}</li>

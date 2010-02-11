@@ -21,58 +21,52 @@ def delete_selected(modeladmin, request, queryset):
     return django_delete_selected(modeladmin, request, queryset)
 delete_selected.short_description = "Mark %(verbose_name_plural)s for deletion"
 
-def _publish_status(model):
-    state = model.get_publish_state_display()
-    if not model.is_public and not model.public:
-        state = '%s - not yet published' % state
-    return ' (%s)' % state
+def _get_publishable_html(admin_site, levels_to_root, value):
+    model = value.__class__
+    model_name = escape(capfirst(model._meta.verbose_name))
+    model_title = escape(force_unicode(value))
+    model_text = '%s: %s' % (model_name, model_title)
+    opts = model._meta                
 
-def _convert_all_published_to_html(modeladmin, all_published):
-    admin_site = modeladmin.admin_site
-    levels_to_root=2
-    
-    def _to_html(published_list):
-        html_list = []
-        for value in published_list:
-            if isinstance(value, Publishable):
-                model = value.__class__
-                model_name = escape(capfirst(model._meta.verbose_name))
-                model_title = escape(force_unicode(value))
-                model_text = '%s: %s%s' % (model_name, model_title, _publish_status(value))
-                opts = model._meta                
-
-                has_admin = model in modeladmin.admin_site._registry
-                if has_admin:
-                    url = get_change_view_url(opts.app_label,
-                                              opts.object_name.lower(),
+    has_admin = model in admin_site._registry
+    if has_admin:
+        modeladmin = admin_site._registry[model]
+        model_text = '%s (%s)' % (model_text, modeladmin.get_publish_status_display(value))
+        url = get_change_view_url(opts.app_label,
+                                  opts.object_name.lower(),
  	                                          value._get_pk_val(),
  	                                          admin_site,
  	                                          levels_to_root)
-                    html_value = mark_safe(u'<a href="%s">%s</a>' % (url, model_text))
-                else:
-                    html_value = mark_safe(model_text)
-            else:
-                html_value = _to_html(value)
-            html_list.append(html_value)
-        return html_list
+        html_value = mark_safe(u'<a href="%s">%s</a>' % (url, model_text))
+    else:
+        html_value = mark_safe(model_text)
+    
+    return html_value
 
-    return _to_html(all_published.nested_items())
+def _to_html(admin_site, items):
+    levels_to_root = 2
+    html_list = []
+    for value in items:
+        if isinstance(value, Publishable):
+            html_value = _get_publishable_html(admin_site, levels_to_root, value)
+        else:
+            html_value = _to_html(admin_site, value)
+        html_list.append(html_value)
+    return html_list
+
+
+def _convert_all_published_to_html(admin_site, all_published):
+    return _to_html(admin_site, all_published.nested_items())
 
 def _check_permissions(modeladmin, all_published, request, perms_needed):
     admin_site = modeladmin.admin_site
 
-    opts_seen = set()
     for instance in all_published:
-        opts = instance._meta
-        if opts in opts_seen:
-            continue
-        opts_seen.add(opts)
-        
         model = instance.__class__
         other_modeladmin = admin_site._registry.get(model,None)
         if other_modeladmin:
-            if not other_modeladmin.has_publish_permission(request):
-                perms_needed.add(opts.verbose_name)
+            if not other_modeladmin.has_publish_permission(request, instance):
+                perms_needed.append(instance)
 
 def publish_selected(modeladmin, request, queryset):
     opts = modeladmin.model._meta
@@ -85,7 +79,7 @@ def publish_selected(modeladmin, request, queryset):
     for obj in queryset:
         obj.publish(dry_run=True, all_published=all_published)
 
-    perms_needed = set()
+    perms_needed = []
     _check_permissions(modeladmin, all_published, request, perms_needed)
     
     if request.POST.get('post'):
@@ -105,11 +99,13 @@ def publish_selected(modeladmin, request, queryset):
             # Return None to display the change list page again.
             return None
     
+    admin_site = modeladmin.admin_site
+ 
     context = {
         "title": _("Publish?"),
         "object_name": force_unicode(opts.verbose_name),
-        "all_published": _convert_all_published_to_html(modeladmin, all_published),
-        "perms_lacking": perms_needed,
+        "all_published": _convert_all_published_to_html(admin_site, all_published),
+        "perms_lacking": _to_html(admin_site, perms_needed),
         'queryset': queryset,
         "opts": opts,
         "root_path": modeladmin.admin_site.root_path,
