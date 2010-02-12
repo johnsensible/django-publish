@@ -17,7 +17,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                                
     from publish.admin import PublishableAdmin, PublishableRelatedFilterSpec
     from publish.actions import publish_selected, delete_selected, \
-                                _convert_all_published_to_html 
+                                _convert_all_published_to_html, undelete_selected
     from publish.utils import NestedSet
     from publish.signals import pre_publish, post_publish
     
@@ -1120,6 +1120,54 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             response = delete_selected(self.page_admin, dummy_request, FlatPage.objects.draft())
             self.failUnless(response is not None)
+
+    class TestUndeleteSelected(TransactionTestCase):
+        
+        def setUp(self):
+            super(TestUndeleteSelected, self).setUp()
+            self.fp1 = FlatPage.objects.create(url='/fp1', title='FP1')
+            
+            self.fp1.publish()
+
+            self.admin_site = AdminSite('Test Admin')
+            self.page_admin = PublishableAdmin(FlatPage, self.admin_site)
+        
+        def test_undelete_selected(self):
+            class dummy_request(object):
+                
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, *arg):
+                        return True
+            
+            self.fp1.delete()
+            self.failUnlessEqual(Publishable.PUBLISH_DELETE, self.fp1.publish_state)            
+
+            response = undelete_selected(self.page_admin, dummy_request, FlatPage.objects.deleted())
+            self.failUnless(response is None)
+            
+            # publish state should no longer be delete
+            fp1 = FlatPage.objects.get(pk=self.fp1.pk)
+            self.failUnlessEqual(Publishable.PUBLISH_CHANGED, fp1.publish_state)
+        
+        def test_undelete_selected_no_permission(self):
+            class dummy_request(object):
+                
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, *arg):
+                        return False
+            
+            self.fp1.delete()
+            self.failUnlessEqual(Publishable.PUBLISH_DELETE, self.fp1.publish_state)            
+
+            try:
+                undelete_selected(self.page_admin, dummy_request, FlatPage.objects.deleted())
+                fail()
+            except PermissionDenied:
+                pass
+            
+         
 
     class TestManyToManyThrough(TransactionTestCase):
         
