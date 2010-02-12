@@ -150,7 +150,8 @@ class PublishableBaseInlineFormSet(BaseInlineFormSet):
     def save_existing_objects(self, commit=True):
         saved_instances = super(PublishableBaseInlineFormSet, self).save_existing_objects(commit=commit)
         for obj in self.deleted_objects:
-            obj.delete(mark_for_deletion=False)
+            if obj.pk is not None:
+                obj.delete(mark_for_deletion=False)
         return saved_instances
 
 class PublishableStackedInline(admin.StackedInline):
