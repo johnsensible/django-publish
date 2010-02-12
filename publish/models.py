@@ -47,14 +47,14 @@ class PublishableQuerySet(QuerySet):
             all_published = NestedSet()
         for p in self:
             p.publish(all_published=all_published)
-    
-    def delete(self):
+
+    def delete(self, mark_for_deletion=True):
         '''
         override delete so that we call delete on each object separately, as delete needs
         to set some flags etc
         '''
         for p in self:
-            p.delete()
+            p.delete(mark_for_deletion=mark_for_deletion)
 
 
 class PublishableManager(models.Manager):
@@ -153,6 +153,9 @@ class Publishable(models.Model):
             return default_function
 
     objects = PublishableManager()
+    
+    def is_marked_for_deletion(self):
+        return self.publish_state == Publishable.PUBLISH_DELETE
 
     def get_public_absolute_url(self):
         if self.public:
@@ -163,6 +166,8 @@ class Publishable(models.Model):
 
     def save(self, mark_changed=True, *arg, **kw):
         if not self.is_public and mark_changed:
+            if self.publish_state == Publishable.PUBLISH_DELETE:
+                raise PublishException("Attempting to save model marked for deletion")
             self.publish_state = Publishable.PUBLISH_CHANGED
 
         super(Publishable, self).save(*arg, **kw)
@@ -173,6 +178,10 @@ class Publishable(models.Model):
             self.save(mark_changed=False)
         else:
             super(Publishable, self).delete()
+
+    def undelete(self):
+        self.publish_state = Publishable.PUBLISH_CHANGED
+        self.save(mark_changed=False)
 
     def _pre_publish(self, dry_run, all_published, deleted=False):
         if not dry_run:
@@ -317,8 +326,10 @@ class Publishable(models.Model):
                         related_item.publish(dry_run=dry_run, all_published=all_published, parent=self)
                     
                     # make sure we tidy up anything that needs deleting
-                    #if self.public:
-                    #    deleted_items = getattr(self.public, name).deleted()
+                    if self.public and not dry_run:
+                        public_ids = related_items.values('public_id')
+                        deleted_items = getattr(self.public, name).exclude(pk__in=public_ids)
+                        deleted_items.delete(mark_for_deletion=False)
                     #    for deleted_item in deleted_items:
                     #        deleted_item.publish_deletions(dry_run=dry_run, all_published=all_published, parent=self)
         

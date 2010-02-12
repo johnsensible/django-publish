@@ -7,6 +7,7 @@ from django.utils.encoding import force_unicode, smart_unicode
 from django.utils.safestring import mark_safe
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.admin.filterspecs import FilterSpec, RelatedFilterSpec
+from django.forms.models import BaseInlineFormSet
 
 from models import Publishable
 from actions import publish_selected, delete_selected
@@ -141,11 +142,22 @@ class PublishableAdmin(admin.ModelAdmin):
         
         return super(PublishableAdmin, self).render_change_form(request, context, add, change, form_url, obj)
 
+class PublishableBaseInlineFormSet(BaseInlineFormSet):
+    # we will actually delete inline objects, rather than
+    # just marking them for deletion, as they are like
+    # an edit to their parent
+    
+    def save_existing_objects(self, commit=True):
+        saved_instances = super(PublishableBaseInlineFormSet, self).save_existing_objects(commit=commit)
+        for obj in self.deleted_objects:
+            obj.delete(mark_for_deletion=False)
+        return saved_instances
+
 class PublishableStackedInline(admin.StackedInline):
-    pass
+    formset = PublishableBaseInlineFormSet
 
 class PublishableTabularInline(admin.TabularInline):
-    pass
+    formset = PublishableBaseInlineFormSet
 
 # add in extra methods
 for admin_class in [PublishableAdmin, PublishableStackedInline, PublishableTabularInline]:

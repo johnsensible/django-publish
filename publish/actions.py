@@ -21,6 +21,7 @@ def delete_selected(modeladmin, request, queryset):
     return django_delete_selected(modeladmin, request, queryset)
 delete_selected.short_description = "Mark %(verbose_name_plural)s for deletion"
 
+
 def _get_publishable_html(admin_site, levels_to_root, value):
     model = value.__class__
     model_name = escape(capfirst(model._meta.verbose_name))
