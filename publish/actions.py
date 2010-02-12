@@ -21,6 +21,14 @@ def delete_selected(modeladmin, request, queryset):
     return django_delete_selected(modeladmin, request, queryset)
 delete_selected.short_description = "Mark %(verbose_name_plural)s for deletion"
 
+def undelete_selected(modeladmin, request, queryset):
+    for obj in queryset:
+        if not modeladmin.has_publish_permission(request, obj):
+            raise PermissionDenied
+    for obj in queryset:
+        obj.undelete()
+    return None
+undelete_selected.short_description = "Un-mark %(verbose_name_plural)s for deletion"
 
 def _get_publishable_html(admin_site, levels_to_root, value):
     model = value.__class__

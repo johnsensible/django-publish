@@ -10,7 +10,7 @@ from django.contrib.admin.filterspecs import FilterSpec, RelatedFilterSpec
 from django.forms.models import BaseInlineFormSet
 
 from models import Publishable
-from actions import publish_selected, delete_selected
+from actions import publish_selected, delete_selected, undelete_selected
 
 class PublishableRelatedFilterSpec(RelatedFilterSpec):
     def __init__(self, f, request, params, model, model_admin):
@@ -74,7 +74,7 @@ def attach_filtered_formfields(admin_class):
 
 class PublishableAdmin(admin.ModelAdmin):
     
-    actions = [publish_selected, delete_selected]
+    actions = [publish_selected, delete_selected, undelete_selected]
     change_form_template = 'admin/publish_change_form.html'
     publish_confirmation_template = None
     deleted_form_template = None
