@@ -98,8 +98,8 @@ class PublishableAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         # user can never change public models directly
         # but can view old read-only copy of it if we are about to delete it
-        if obj and obj.is_public:
-            if request.method == 'POST' or obj.publish_state != Publishable.PUBLISH_DELETE:
+        if obj:
+            if obj.is_public or (request.method == 'POST' and obj.publish_state == Publishable.PUBLISH_DELETE):
                 return False
         return super(PublishableAdmin, self).has_change_permission(request, obj)
     

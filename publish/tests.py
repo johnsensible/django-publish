@@ -12,7 +12,8 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     from django.http import Http404
     
     from publish.models import Publishable, FlatPage, Site, Page, PageBlock, \
-                               Author, Tag, PageTagOrder, Comment, update_pub_date
+                               Author, Tag, PageTagOrder, Comment, update_pub_date, \
+                               PublishException
                                
     from publish.admin import PublishableAdmin, PublishableRelatedFilterSpec
     from publish.actions import publish_selected, delete_selected, \
@@ -129,19 +130,19 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnless(self.flat_page.public.is_public)
             self.failUnlessEqual(Publishable.PUBLISH_DEFAULT, self.flat_page.public.publish_state)
 
-        def test_publish_changes_check_is_not_public(self):
+        def test_publish_check_is_not_public(self):
             try:
                 self.flat_page.is_public = True
-                self.flat_page.publish_changes()
+                self.flat_page.publish()
                 self.fail("Should not be able to publish public models")
-            except AssertionError:
+            except PublishException:
                 pass
 
         def test_publish_check_has_id(self):
             try:
                 self.flat_page.publish()
                 self.fail("Should not be able to publish unsaved models")
-            except AssertionError:
+            except PublishException:
                 pass
         
         def test_publish_simple_fields(self):
@@ -199,9 +200,9 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnless(public)
             
             self.flat_page.delete()
-            self.failUnlessEqual(Publishable.PUBLISH_DELETE, public.publish_state)
+            self.failUnlessEqual(Publishable.PUBLISH_DELETE, self.flat_page.publish_state)
 
-            self.failUnlessEqual([public], list(FlatPage.objects.all()))
+            self.failUnlessEqual(set([self.flat_page, self.flat_page.public]), set(FlatPage.objects.all()))
 
         def test_delete_before_publish(self):
             self.flat_page.save()
@@ -213,22 +214,14 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.flat_page.publish()
             public = self.flat_page.public
             
+            self.failUnlessEqual(set([self.flat_page, public]), set(FlatPage.objects.all()))
+ 
             self.flat_page.delete()
-            self.failUnlessEqual([public], list(FlatPage.objects.all()))
+            self.failUnlessEqual(set([self.flat_page, public]), set(FlatPage.objects.all()))
                        
-            public.publish()
+            self.flat_page.publish()
             self.failUnlessEqual([], list(FlatPage.objects.all()))
 
-        def test_publish_deletions_checks_flag(self):
-            self.flat_page.save()
-            self.flat_page.publish()
-            public = self.flat_page.public
-            
-            self.failUnlessEqual(set([self.flat_page, public]), set(FlatPage.objects.all()))
-                       
-            public.publish()
-            self.failUnlessEqual(set([self.flat_page, public]), set(FlatPage.objects.all()))
-        
         def test_publish_deletions_checks_all_published(self):
             # make sure publish_deletions looks at all_published arg
             # to see if we need to actually publish the deletion
@@ -238,13 +231,15 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             self.flat_page.delete()
             
-            self.failUnlessEqual(set([public]), set(FlatPage.objects.all()))
+            self.failUnlessEqual(set([self.flat_page, public]), set(FlatPage.objects.all()))
             
+            # this should effectively stop the deletion happening
             all_published = NestedSet()
-            all_published.add(public)
+            all_published.add(self.flat_page)
             
-            public.publish(all_published=all_published)
-            self.failUnlessEqual(set([public]), set(FlatPage.objects.all()))
+            self.flat_page.publish(all_published=all_published)
+            self.failUnlessEqual(set([self.flat_page, public]), set(FlatPage.objects.all()))
+
 
     class TestPublishableManager(TransactionTestCase):
         
@@ -282,6 +277,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             self.flat_page2.publish()
             self.failUnlessEqual([self.flat_page1, self.flat_page2], list(FlatPage.objects.draft()))
+
+            self.flat_page2.delete()
+            self.failUnlessEqual([self.flat_page1], list(FlatPage.objects.draft()))
+            
         
         def test_published(self):
             self.failUnlessEqual([], list(FlatPage.objects.published()))
@@ -298,19 +297,19 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.flat_page1.publish()
             self.failUnlessEqual([], list(FlatPage.objects.deleted()))
 
-            public = self.flat_page1.public
             self.flat_page1.delete()
-            self.failUnlessEqual([public], list(FlatPage.objects.deleted()))
+            self.failUnlessEqual([self.flat_page1], list(FlatPage.objects.deleted()))
 
         def test_draft_and_deleted(self):
             self.failUnlessEqual(set([self.flat_page1, self.flat_page2]), set(FlatPage.objects.draft_and_deleted()))
             
             self.flat_page1.publish()
             self.failUnlessEqual(set([self.flat_page1, self.flat_page2]), set(FlatPage.objects.draft_and_deleted()))
-            
-            public1 = self.flat_page1.public
+            self.failUnlessEqual(set([self.flat_page1, self.flat_page2]), set(FlatPage.objects.draft()))
+ 
             self.flat_page1.delete()
-            self.failUnlessEqual(set([public1, self.flat_page2]), set(FlatPage.objects.draft_and_deleted()))
+            self.failUnlessEqual(set([self.flat_page1, self.flat_page2]), set(FlatPage.objects.draft_and_deleted()))
+            self.failUnlessEqual([self.flat_page2], list(FlatPage.objects.draft()))
 
 
         def test_delete(self):
@@ -320,8 +319,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             FlatPage.objects.draft().delete()
             
-            self.failUnlessEqual([public1], list(FlatPage.objects.all()))
-            self.failUnlessEqual([public1], list(FlatPage.objects.deleted()))
+            self.failUnlessEqual([], list(FlatPage.objects.draft()))
+            self.failUnlessEqual([self.flat_page1], list(FlatPage.objects.deleted()))
+            self.failUnlessEqual([public1], list(FlatPage.objects.published()))
+            self.failUnlessEqual([self.flat_page1], list(FlatPage.objects.draft_and_deleted()))
         
         def test_publish(self):
             self.failUnlessEqual([], list(FlatPage.objects.published()))
@@ -504,11 +505,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.page1.publish()
             self.page2.publish()
             
-            public = self.page2.public
             self.page2.delete()
-            self.failUnlessEqual([public], list(Page.objects.deleted()))
+            self.failUnlessEqual([self.page2], list(Page.objects.deleted()))
 
-            public.publish()
+            self.page2.publish()
             self.failUnlessEqual([self.page1.public], list(Page.objects.published()))
             self.failUnlessEqual([], list(Page.objects.deleted()))
 
@@ -532,11 +532,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnless(public)
            
             self.page1.delete()
-            public = Page.objects.get(id=public.id)
             
-            self.failUnlessEqual([public], list(Page.objects.deleted()))
+            self.failUnlessEqual([self.page1], list(Page.objects.deleted()))
             
-            public.publish()
+            self.page1.publish()
             self.failUnlessEqual([], list(Page.objects.deleted()))
             self.failUnlessEqual([], list(Page.objects.all()))
         
@@ -565,18 +564,16 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         def test_publish_delections_with_non_publishable_children(self):
             self.page1.publish()
 
-            public = self.page1.public
-            comment = Comment.objects.create(page=public, comment='This is a comment')
+            comment = Comment.objects.create(page=self.page1.public, comment='This is a comment')
 
             self.failUnlessEqual(1, Comment.objects.count())
 
             self.page1.delete()
 
-            public = Page.objects.get(id=public.id)
-            
-            self.failUnlessEqual([public], list(Page.objects.deleted()))
+            self.failUnlessEqual([self.page1], list(Page.objects.deleted()))
+            self.failIf(self.page1 in Page.objects.draft())            
 
-            public.publish()
+            self.page1.publish()
             self.failUnlessEqual([], list(Page.objects.deleted()))
             self.failUnlessEqual([], list(Page.objects.all()))
             self.failUnlessEqual([], list(Comment.objects.all()))
@@ -747,10 +744,8 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             page.save()
             self.failUnlessEqual('Changed', self.page_admin.get_publish_status_display(page))
             
-            public = page.public
             page.delete()
-            public = Page.objects.get(id=public.id)
-            self.failUnlessEqual('To be deleted', self.page_admin.get_publish_status_display(public))
+            self.failUnlessEqual('To be deleted', self.page_admin.get_publish_status_display(page))
 
         def test_queryset(self):
             # make sure we only get back draft objects
@@ -840,13 +835,13 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnless(self.page_admin.has_change_permission(dummy_request, self.page1))
             self.failIf(self.page_admin.has_change_permission(dummy_request, self.page1.public))
 
-            # can view deleted public items
-            self.page1.public.publish_state = Publishable.PUBLISH_DELETE
-            self.failUnless(self.page_admin.has_change_permission(dummy_request, self.page1.public))
+            # can view deleted items
+            self.page1.publish_state = Publishable.PUBLISH_DELETE
+            self.failUnless(self.page_admin.has_change_permission(dummy_request, self.page1))
 
             # but cannot modify them
             dummy_request.method = 'POST'
-            self.failIf(self.page_admin.has_change_permission(dummy_request, self.page1.public))
+            self.failIf(self.page_admin.has_change_permission(dummy_request, self.page1))
  
         def test_has_delete_permission(self):
             class dummy_request(object):
@@ -907,10 +902,9 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                     def get_and_delete_messages(cls):
                         return []
             
-            public1 = self.page1.public
             self.page1.delete()
 
-            response = self.page_admin.change_view(dummy_request, str(public1.id))
+            response = self.page_admin.change_view(dummy_request, str(self.page1.id))
             self.failUnless(response is not None)
             self.failUnless('deleted' in response.content)
 
@@ -918,11 +912,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             class dummy_request(object):
                 method = 'POST'
                         
-            public1 = self.page1.public
             self.page1.delete()
 
             try:
-                self.page_admin.change_view(dummy_request, str(public1.id))
+                self.page_admin.change_view(dummy_request, str(self.page1.id))
                 fail()
             except PermissionDenied:
                 pass
@@ -1279,9 +1272,8 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             public = self.child1.public
             
             self.child1.delete()
-            public = Page.objects.get(id=public.id)
 
-            self.failUnlessEqual(Publishable.PUBLISH_DELETE, public.publish_state)
+            self.failUnlessEqual(Publishable.PUBLISH_DELETE, self.child1.publish_state)
 
             def pre_publish_handler(sender, instance, deleted, **kw):
                 self.failUnless(deleted)          
@@ -1293,5 +1285,5 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             post_publish.connect(post_publish_handler, sender=Page)
             
-            public.publish()
+            self.child1.publish()
 

@@ -17,6 +17,9 @@ from signals import pre_publish, post_publish
 # but we want this to be a reusable/standalone app and have a few different needs
 #
 
+class PublishException(Exception):
+    pass
+
 class PublishableQuerySet(QuerySet):
 
     def changed(self):
@@ -105,9 +108,9 @@ class Publishable(models.Model):
 
     # make these available here so can easily re-use them in other code
     Q_PUBLISHED = Q(is_public=True)
-    Q_DRAFT     = Q(is_public=False)
+    Q_DRAFT     = Q(is_public=False) & ~Q(publish_state=PUBLISH_DELETE)
     Q_CHANGED   = Q(is_public=False, publish_state=PUBLISH_CHANGED)
-    Q_DELETED   = Q(is_public=True, publish_state=PUBLISH_DELETE)
+    Q_DELETED   = Q(is_public=False, publish_state=PUBLISH_DELETE)
 
     is_public = models.BooleanField(default=False, editable=False, db_index=True)
     publish_state = models.IntegerField('Publication status', editable=False, db_index=True, choices=PUBLISH_CHOICES, default=PUBLISH_DEFAULT)
@@ -164,20 +167,12 @@ class Publishable(models.Model):
 
         super(Publishable, self).save(*arg, **kw)
     
-    def _copy_over_log_entries(self, object):
-        # preserve the logs for this object
-        content_type_id = ContentType.objects.get_for_model(object).id
-        
-        entries = LogEntry.objects.filter(object_id = self.pk, content_type__id__exact = content_type_id)
-        entries.update(object_id = object.pk)
-
-    def delete(self):
-        if self.public:
-            # mark public version for future deletion
-            self.public.publish_state = Publishable.PUBLISH_DELETE
-            self.public.save()
-            self._copy_over_log_entries(self.public) 
-        super(Publishable, self).delete()
+    def delete(self, mark_for_deletion=True):
+        if self.public and mark_for_deletion:
+            self.publish_state = Publishable.PUBLISH_DELETE
+            self.save(mark_changed=False)
+        else:
+            super(Publishable, self).delete()
 
     def _pre_publish(self, dry_run, all_published, deleted=False):
         if not dry_run:
@@ -193,7 +188,7 @@ class Publishable(models.Model):
             post_publish.send(sender=sender, instance=instance, deleted=deleted)
 
 
-    def publish(self, dry_run=False, all_published=None):
+    def publish(self, dry_run=False, all_published=None, parent=None):
         '''
         either publish changes or deletions, depending on
         whether this model is public or draft.
@@ -201,18 +196,23 @@ class Publishable(models.Model):
         public models will be examined to see if they need deleting
         and deleted if so.
         '''
-
         if self.is_public:
-            self.publish_deletions(dry_run=dry_run, all_published=all_published)
+            raise PublishException("Cannot publish public model - publish should be called from draft model")
+        if self.pk is None:
+            raise PublishException("Please save model before publishing")
+         
+        if self.publish_state == Publishable.PUBLISH_DELETE:
+            self.publish_deletions(dry_run=dry_run, all_published=all_published, parent=parent)
+            return None
         else:
-            self.publish_changes(dry_run=dry_run, all_published=all_published)
+            return self.publish_changes(dry_run=dry_run, all_published=all_published, parent=parent)
         
-    def _get_public_or_publish_changes(self, *arg, **kw):
+    def _get_public_or_publish(self, *arg, **kw):
         # only publish if we don't yet have an id for the
         # public model
         if self.public:
             return self.public
-        return self.publish_changes(*arg, **kw)
+        return self.publish(*arg, **kw)
 
     def publish_changes(self, dry_run=False, all_published=None, parent=None):
         '''
@@ -255,7 +255,7 @@ class Publishable(models.Model):
                     related = field.rel.to
                     if issubclass(related, Publishable):
                         if value is not None:
-                            value = value._get_public_or_publish_changes(dry_run=dry_run, all_published=all_published, parent=self)
+                            value = value._get_public_or_publish(dry_run=dry_run, all_published=all_published, parent=self)
                 
                 if not dry_run:
                     publish_function = self.PublishMeta.find_publish_function(field.name, setattr)
@@ -295,7 +295,7 @@ class Publishable(models.Model):
                         
             related = field_object.rel.to
             if issubclass(related, Publishable):
-                public_objs = [p._get_public_or_publish_changes(dry_run=dry_run, all_published=all_published, parent=self) for p in public_objs]
+                public_objs = [p._get_public_or_publish(dry_run=dry_run, all_published=all_published, parent=self) for p in public_objs]
             
             if not dry_run:
                 public_m2m_manager = getattr(public_version, name)
@@ -314,13 +314,13 @@ class Publishable(models.Model):
                 if obj.field.rel.multiple:
                     related_items = getattr(self, name).all()
                     for related_item in related_items:
-                        related_item.publish_changes(dry_run=dry_run, all_published=all_published, parent=self)
+                        related_item.publish(dry_run=dry_run, all_published=all_published, parent=self)
                     
                     # make sure we tidy up anything that needs deleting
-                    if self.public:
-                        deleted_items = getattr(self.public, name).deleted()
-                        for deleted_item in deleted_items:
-                            deleted_item.publish_deletions(dry_run=dry_run, all_published=all_published, parent=self)
+                    #if self.public:
+                    #    deleted_items = getattr(self.public, name).deleted()
+                    #    for deleted_item in deleted_items:
+                    #        deleted_item.publish_deletions(dry_run=dry_run, all_published=all_published, parent=self)
         
         self._post_publish(dry_run, all_published)
 
@@ -330,8 +330,6 @@ class Publishable(models.Model):
         '''
         actually delete models that have been marked for deletion
         '''
-        assert self.is_public, "delete_if_marked should only be called from public model"
-        
         if self.publish_state != Publishable.PUBLISH_DELETE:
             return  
 
@@ -359,7 +357,10 @@ class Publishable(models.Model):
                 instance.publish_deletions(all_published=all_published, parent=self, dry_run=dry_run)
         
         if not dry_run:
-            self.delete()
+            public = self.public
+            self.delete(mark_for_deletion=False)
+            if public:
+                public.delete(mark_for_deletion=False)
 
         self._post_publish(dry_run, all_published, deleted=True)
 
