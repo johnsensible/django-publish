@@ -5,6 +5,7 @@ DATABASE_NAME = ':memory:'
 INSTALLED_APPS = ( 
                     'django.contrib.contenttypes',
                     'django.contrib.admin',
+                    'django.contrib.auth',
                     'publish',
                  )
 

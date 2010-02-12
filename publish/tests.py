@@ -4,8 +4,9 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     import unittest
     from django.test import TransactionTestCase
     from django.contrib.admin.sites import AdminSite
-    from django.contrib.admin import StackedInline
+    from django.contrib.admin import StackedInline 
     from django.contrib.admin.filterspecs import FilterSpec
+    from django.contrib.auth.models import User
     from django.forms.models import ModelChoiceField, ModelMultipleChoiceField
     from django.conf.urls.defaults import *
     from django.core.exceptions import PermissionDenied
@@ -15,7 +16,8 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                                Author, Tag, PageTagOrder, Comment, update_pub_date, \
                                PublishException
                                
-    from publish.admin import PublishableAdmin, PublishableRelatedFilterSpec
+    from publish.admin import PublishableAdmin, PublishableRelatedFilterSpec, \
+                              PublishableStackedInline
     from publish.actions import publish_selected, delete_selected, \
                                 _convert_all_published_to_html, undelete_selected
     from publish.utils import NestedSet
@@ -728,13 +730,18 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
             self.admin_site = AdminSite('Test Admin')
             
-            class PageBlockInline(StackedInline):
+            class PageBlockInline(PublishableStackedInline):
                 model = PageBlock
 
             class PageAdmin(PublishableAdmin):
                 inlines = [PageBlockInline]
 
             self.page_admin = PageAdmin(Page, self.admin_site)
+
+            # override urls, so reverse works
+            settings.ROOT_URLCONF=patterns('',
+                ('^admin/', include(self.admin_site.urls)),
+            )
         
         def test_get_publish_status_display(self):
             page = Page.objects.create(slug="hhkkk", title="hjkhjkh")
@@ -919,6 +926,59 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 fail()
             except PermissionDenied:
                 pass
+
+        def test_change_view_delete_inline(self):
+            block = PageBlock.objects.create(page=self.page1, content='some content')
+            page1 = Page.objects.get(pk=self.page1.pk)
+            page1.publish()
+           
+            user1 = User.objects.create_user('test1', 'test@example.com', 'jkljkl')
+ 
+            # fake selecting the delete tickbox for the block            
+            
+            class dummy_request(object):
+                method = 'POST'
+
+                POST = {
+                    'slug': page1.slug,
+                    'title': page1.title,
+                    'content': page1.content,
+                    'pub_date_0': '2010-02-12',
+                    'pub_date_1': '17:40:00',
+                    'pageblock_set-TOTAL_FORMS': '2',
+                    'pageblock_set-INITIAL_FORMS': '1',
+                    'pageblock_set-0-id': str(block.id),
+                    'pageblock_set-0-page': str(page1.id),
+                    'pageblock_set-0-DELETE': 'yes' 
+                }
+                REQUEST = POST
+                FILES = {}
+                
+                class user(object):
+                    pk = user1.pk
+                    
+                    @classmethod
+                    def has_perm(cls, permission):
+                        return True
+                    
+                    @classmethod
+                    def get_and_delete_messages(cls):
+                        return []
+
+                    class message_set(object):
+                        @classmethod
+                        def create(cls, message=''):
+                            pass
+                    
+            
+            block = PageBlock.objects.get(id=block.id)
+            public_block = block.public
+
+            response = self.page_admin.change_view(dummy_request, str(page1.id))
+
+            # the block should have been deleted (but not the public one)
+            self.failUnlessEqual([public_block], list(PageBlock.objects.all()))
+            
      
     class TestPublishSelectedAction(TransactionTestCase):
         
@@ -1166,8 +1226,6 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 fail()
             except PermissionDenied:
                 pass
-            
-         
 
     class TestManyToManyThrough(TransactionTestCase):
         
@@ -1334,4 +1392,6 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             post_publish.connect(post_publish_handler, sender=Page)
             
             self.child1.publish()
+
+        
 

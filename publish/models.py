@@ -438,9 +438,9 @@ if getattr(settings, 'TESTING_PUBLISH', False):
  
         parent = models.ForeignKey('self', blank=True, null=True)
         
-        authors = models.ManyToManyField(Author)
-        log = models.ManyToManyField(ChangeLog)
-        tags = models.ManyToManyField(Tag, through='PageTagOrder')
+        authors = models.ManyToManyField(Author, blank=True)
+        log = models.ManyToManyField(ChangeLog, blank=True)
+        tags = models.ManyToManyField(Tag, through='PageTagOrder', blank=True)
 
         class Meta:
             ordering = ['slug']
