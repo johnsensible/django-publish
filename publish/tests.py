@@ -1059,6 +1059,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failUnlessEqual(expected, converted)
         
         def test_publish_selected_does_not_have_permission(self):
+            self.admin_site.register(Page, PublishableAdmin)
             pages = Page.objects.exclude(id=self.fp3.id)
             
             class dummy_request(object):
@@ -1072,11 +1073,13 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                     @classmethod
                     def get_and_delete_messages(cls):
                         return []
-            try:
-                publish_selected(self.page_admin, dummy_request, pages)
-                self.fail()
-            except PermissionDenied:
-                pass
+            
+            response = publish_selected(self.page_admin, dummy_request, pages)
+            self.failIf(response is None)
+            # publish button should not be in response
+            self.failIf('value="publish_selected"' in response.content)
+            self.failIf('value="Yes, Publish"' in response.content)
+            self.failIf('form' in response.content)
             
             self.failIf(Page.objects.published().count() > 0)
         

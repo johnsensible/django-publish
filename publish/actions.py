@@ -81,9 +81,6 @@ def publish_selected(modeladmin, request, queryset):
     opts = modeladmin.model._meta
     app_label = opts.app_label
     
-    if not modeladmin.has_publish_permission(request):
-        raise PermissionDenied
-
     all_published = NestedSet()
     for obj in queryset:
         obj.publish(dry_run=True, all_published=all_published)
