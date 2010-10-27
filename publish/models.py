@@ -3,9 +3,6 @@ from django.db.models.query import QuerySet, Q
 from django.db.models.base import ModelBase
 from django.db.models.fields.related import RelatedField
 from django.conf import settings
-from django.db.models.fields.related import RelatedField
-from django.contrib.admin.models import LogEntry
-from django.contrib.contenttypes.models import ContentType
 
 from utils import NestedSet
 from signals import pre_publish, post_publish
