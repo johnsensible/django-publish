@@ -867,7 +867,17 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             class dummy_request(object):
                 method = 'GET'
                 REQUEST = {}
+                COOKIES = {}
+                META = {}
                 
+                @classmethod
+                def is_ajax(cls):
+                    return False
+
+                @classmethod
+                def is_secure(cls):
+                    return False 
+
                 class user(object):
                     @classmethod
                     def has_perm(cls, permission):
@@ -883,6 +893,18 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         
         def test_change_view_not_deleted(self):
             class dummy_request(object):
+                method = 'POST'
+                COOKIES = {}
+                META = {}
+                
+                @classmethod
+                def is_ajax(cls):
+                    return False
+
+                @classmethod
+                def is_secure(cls):
+                    return False
+
                 class user(object):
                     @classmethod
                     def has_perm(cls, permission):
@@ -890,7 +912,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             try:
                 self.page_admin.change_view(dummy_request, str(self.page1.public.id))
-                fail()
+                self.fail()
             except Http404:
                 pass
 
@@ -898,7 +920,17 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             class dummy_request(object):
                 method = 'GET'
                 REQUEST = {}
-                 
+                COOKIES = {}
+                META = {}
+                
+                @classmethod
+                def is_ajax(cls):
+                    return False
+
+                @classmethod
+                def is_secure(cls):
+                    return False
+
                 class user(object):
                     @classmethod
                     def has_perm(cls, permission):
@@ -917,12 +949,22 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         def test_change_view_deleted_POST(self):
             class dummy_request(object):
                 method = 'POST'
+                COOKIES = {}
+                META = {}
+                
+                @classmethod
+                def is_ajax(cls):
+                    return False
+
+                @classmethod
+                def is_secure(cls):
+                    return False
                         
             self.page1.delete()
 
             try:
                 self.page_admin.change_view(dummy_request, str(self.page1.id))
-                fail()
+                self.fail()
             except PermissionDenied:
                 pass
 
@@ -937,7 +979,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             class dummy_request(object):
                 method = 'POST'
-
+                
                 POST = {
                     'slug': page1.slug,
                     'title': page1.title,
@@ -952,7 +994,17 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 }
                 REQUEST = POST
                 FILES = {}
+                COOKIES = {}
+                META = {}
                 
+                @classmethod
+                def is_ajax(cls):
+                    return False
+
+                @classmethod
+                def is_secure(cls):
+                    return False
+
                 class user(object):
                     pk = user1.pk
                     
@@ -988,7 +1040,6 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.fp3 = Page.objects.create(slug='fp3', title='FP3')
 
             self.admin_site = AdminSite('Test Admin')
-            self.admin_site.register(Page, PublishableAdmin)
             self.page_admin = PublishableAdmin(Page, self.admin_site)
             
             # override urls, so reverse works
