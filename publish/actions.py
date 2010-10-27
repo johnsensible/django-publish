@@ -1,17 +1,21 @@
 from django import template
 from django.core.exceptions import PermissionDenied
 from django.contrib.admin import helpers
-from django.contrib.admin.util import get_change_view_url, model_ngettext
+from django.contrib.admin.util import quote, model_ngettext
 from django.shortcuts import render_to_response
 from django.utils.encoding import force_unicode
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.text import capfirst
-from django.utils.translation import ugettext_lazy, ugettext as _
+from django.utils.translation import ugettext as _
 from django.contrib.admin.actions import delete_selected as django_delete_selected
 
 from models import Publishable
 from utils import NestedSet
+
+def _get_change_view_url(app_label, object_name, pk, levels_to_root):
+    return '%s%s/%s/%s/' % ('../'*levels_to_root, app_label,
+                            object_name, quote(pk)) 
 
 def delete_selected(modeladmin, request, queryset):
     # wrap regular django delete_selected to check permissions for each object
@@ -41,11 +45,10 @@ def _get_publishable_html(admin_site, levels_to_root, value):
     if has_admin:
         modeladmin = admin_site._registry[model]
         model_text = '%s (%s)' % (model_text, modeladmin.get_publish_status_display(value))
-        url = get_change_view_url(opts.app_label,
-                                  opts.object_name.lower(),
- 	                                          value._get_pk_val(),
- 	                                          admin_site,
- 	                                          levels_to_root)
+        url = _get_change_view_url(opts.app_label,
+                                   opts.object_name.lower(),
+                                   value._get_pk_val(),
+ 	                               levels_to_root)
         html_value = mark_safe(u'<a href="%s">%s</a>' % (url, model_text))
     else:
         html_value = mark_safe(model_text)

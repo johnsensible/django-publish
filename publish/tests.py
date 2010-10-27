@@ -4,7 +4,6 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     import unittest
     from django.test import TransactionTestCase
     from django.contrib.admin.sites import AdminSite
-    from django.contrib.admin import StackedInline 
     from django.contrib.admin.filterspecs import FilterSpec
     from django.contrib.auth.models import User
     from django.forms.models import ModelChoiceField, ModelMultipleChoiceField
@@ -989,6 +988,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.fp3 = Page.objects.create(slug='fp3', title='FP3')
 
             self.admin_site = AdminSite('Test Admin')
+            self.admin_site.register(Page, PublishableAdmin)
             self.page_admin = PublishableAdmin(Page, self.admin_site)
             
             # override urls, so reverse works
@@ -1024,6 +1024,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 POST = {'post': True}
 
                 class user(object):
+                    @classmethod
+                    def is_authenticated(cls):
+                        return True
+
                     @classmethod
                     def has_perm(cls, *arg):
                         return True
@@ -1097,6 +1101,12 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 POST = { 'post': True }
 
                 class user(object):
+                    pk = 1
+
+                    @classmethod
+                    def is_authenticated(cls):
+                        return True
+
                     @classmethod
                     def has_perm(cls, perm):
                         return perm != 'publish.publish_author'
@@ -1120,6 +1130,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                 class user(object):
                     pk = 1
                     
+                    @classmethod
+                    def is_authenticated(cls):
+                        return True
+
                     @classmethod
                     def has_perm(cls, perm):
                         return perm != 'publish.publish_author'
@@ -1170,7 +1184,8 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         
         def test_delete_selected(self):
             class dummy_request(object):
-                POST = { }
+                POST = {}
+                META = {}
                 
                 class user(object):
                     @classmethod

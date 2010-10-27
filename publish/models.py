@@ -287,7 +287,7 @@ class Publishable(models.Model):
             field_object, model, direct, m2m = self._meta.get_field_by_name(name)
             if field_object.rel.through:
                 # see if we can work out which reverse relationship this is
-                related_model = field_object.rel.through_model
+                related_model = field_object.rel.through
                 # this will be db name (e.g. with _id on end)
                 m2m_reverse_name = field_object.m2m_reverse_name()
                 for reverse_field in related_model._meta.fields:
@@ -375,7 +375,6 @@ class Publishable(models.Model):
 
 if getattr(settings, 'TESTING_PUBLISH', False):
     # classes to test that publishing etc work ok
-    from django.utils.translation import ugettext_lazy as _
     from datetime import datetime
 
     class Site(models.Model):
