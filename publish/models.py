@@ -288,17 +288,19 @@ class Publishable(models.Model):
             if field_object.rel.through:
                 # see if we can work out which reverse relationship this is
                 related_model = field_object.rel.through
-                # this will be db name (e.g. with _id on end)
-                m2m_reverse_name = field_object.m2m_reverse_name()
-                for reverse_field in related_model._meta.fields:
-                    if reverse_field.column == m2m_reverse_name:
-                        related_name = reverse_field.name
-                        related_field = getattr(related_model, related_name).field
-                        reverse_name = related_field.related.get_accessor_name()
-                        reverse_fields_to_publish.append(reverse_name)
-                        break
-                continue # m2m via through table won't be dealt with here
-                        
+                # see if we are using our own "through" table or not
+                if issubclass(related_model, Publishable):
+                    # this will be db name (e.g. with _id on end)
+                    m2m_reverse_name = field_object.m2m_reverse_name()
+                    for reverse_field in related_model._meta.fields:
+                        if reverse_field.column == m2m_reverse_name:
+                            related_name = reverse_field.name
+                            related_field = getattr(related_model, related_name).field
+                            reverse_name = related_field.related.get_accessor_name()
+                            reverse_fields_to_publish.append(reverse_name)
+                            break
+                    continue # m2m via through table won't be dealt with here
+
             related = field_object.rel.to
             if issubclass(related, Publishable):
                 public_objs = [p._get_public_or_publish(dry_run=dry_run, all_published=all_published, parent=self) for p in public_objs]
