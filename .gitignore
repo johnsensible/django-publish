@@ -1,8 +1,9 @@
 .coverage
-dist
-examplecms/media
-django_publish.egg-info
-tags
+/dist
+/examplecms/media
+/django_publish.egg-info
+/tags
+/django1.2
 *.pyc
 *.swp
 *.db
