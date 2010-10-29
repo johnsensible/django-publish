@@ -948,6 +948,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
         def test_change_view_deleted_POST(self):
             class dummy_request(object):
+                csrf_processing_done = True # stop csrf check
                 method = 'POST'
                 COOKIES = {}
                 META = {}
@@ -978,6 +979,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             # fake selecting the delete tickbox for the block            
             
             class dummy_request(object):
+                csrf_processing_done = True
                 method = 'POST'
                 
                 POST = {
@@ -1009,6 +1011,10 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                     pk = user1.pk
                     
                     @classmethod
+                    def is_authenticated(self):
+                        return True
+
+                    @classmethod
                     def has_perm(cls, permission):
                         return True
                     
@@ -1026,6 +1032,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             public_block = block.public
 
             response = self.page_admin.change_view(dummy_request, str(page1.id))
+            self.assertEqual(302, response.status_code)
 
             # the block should have been deleted (but not the public one)
             self.failUnlessEqual([public_block], list(PageBlock.objects.all()))
