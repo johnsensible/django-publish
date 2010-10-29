@@ -4,6 +4,7 @@
 /django_publish.egg-info
 /tags
 /django1.2
+/django1.1
 *.pyc
 *.swp
 *.db

@@ -220,6 +220,20 @@ class Publishable(models.Model):
             return self.public
         return self.publish(*arg, **kw)
 
+    def _get_through_model(self, field_object):
+        '''
+        Get the "through" model associated with this field.
+        Need to handle things differently for Django1.1 vs Django1.2
+        In 1.1 through is a string and through_model has class
+        In 1.2 through is the class
+        '''
+        through = field_object.rel.through
+        if through:
+            if isinstance(through, basestring):
+                return field_object.rel.through_model
+            return through
+        return None
+
     def publish_changes(self, dry_run=False, all_published=None, parent=None):
         '''
         publish changes to the model - basically copy all of it's content to another copy in the 
@@ -285,17 +299,17 @@ class Publishable(models.Model):
             public_objs = list(m2m_manager.all())
 
             field_object, model, direct, m2m = self._meta.get_field_by_name(name)
-            if field_object.rel.through:
+            through_model = self._get_through_model(field_object)
+            if through_model:
                 # see if we can work out which reverse relationship this is
-                related_model = field_object.rel.through
                 # see if we are using our own "through" table or not
-                if issubclass(related_model, Publishable):
+                if issubclass(through_model, Publishable):
                     # this will be db name (e.g. with _id on end)
                     m2m_reverse_name = field_object.m2m_reverse_name()
-                    for reverse_field in related_model._meta.fields:
+                    for reverse_field in through_model._meta.fields:
                         if reverse_field.column == m2m_reverse_name:
                             related_name = reverse_field.name
-                            related_field = getattr(related_model, related_name).field
+                            related_field = getattr(through_model, related_name).field
                             reverse_name = related_field.related.get_accessor_name()
                             reverse_fields_to_publish.append(reverse_name)
                             break
