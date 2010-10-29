@@ -893,7 +893,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         
         def test_change_view_not_deleted(self):
             class dummy_request(object):
-                method = 'POST'
+                method = 'GET'
                 COOKIES = {}
                 META = {}
                 
@@ -911,7 +911,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                         return True
             
             try:
-                self.page_admin.change_view(dummy_request, str(self.page1.public.id))
+                self.page_admin.change_view(dummy_request, unicode(self.page1.public.id))
                 self.fail()
             except Http404:
                 pass
