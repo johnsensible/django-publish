@@ -52,7 +52,7 @@ Then to make this model support publishing you would change the ``models.py`` th
     class MyModel(Publishable): # extends from Publishable instead of models.Model
         title = models.CharField(max_length=100)
         
-        class Meta(Publishable.Meta): # note you should extend from Publishable.Meta
+        class Meta(Publish.Meta): # note you should extend from Publish.Meta
             ordering = ["title"]
 
 That will add some extra fields to your model (so you may need to update your db).  At this point though the admin will show both the draft and published objects.  We obviously do not want that, as we want the user to edit the draft objects and then "publish" them once they are happy.  So we have to alter the ``admin.py`` file too:
@@ -125,7 +125,7 @@ You can further control the publication process by providing a ``PublishMeta`` c
         body  = models.TextField()
         notes = models.TextField(blank=True)
 
-        class PublishMeta(Publishable.PublishableMeta):
+        class PublishMeta(Publishable.PublishMeta):
             publish_exclude_fields = ['notes']
 
 In the above class the "notes" field will be excluded from publication - it will not be copied to the public copy.
