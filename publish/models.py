@@ -157,9 +157,7 @@ class Publishable(models.Model):
     def get_public_absolute_url(self):
         if self.public:
             return self.public.get_absolute_url()
-        # effectively this method doesn't exist until we
-        # have a public instance
-        raise AttributeError("get_public_absolute_url")
+        return None
 
     def save(self, mark_changed=True, *arg, **kw):
         if not self.is_public and mark_changed:

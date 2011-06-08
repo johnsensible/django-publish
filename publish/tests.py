@@ -107,11 +107,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         def test_get_public_absolute_url(self):
             self.failUnlessEqual('/my-page*', self.flat_page.get_absolute_url())
             # public absolute url doesn't exist until published
-            try:
-                self.flat_page.get_public_absolute_url()
-                self.fail()
-            except AttributeError:
-                pass
+            self.assertTrue(self.flat_page.get_public_absolute_url() is None)
             self.flat_page.save()
             self.flat_page.publish()
             self.failUnlessEqual('/my-page', self.flat_page.get_public_absolute_url())
@@ -1058,6 +1054,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             pages = Page.objects.exclude(id=self.fp3.id)
             
             class dummy_request(object):
+                META = {}
                 POST = {}
 
                 class user(object):
