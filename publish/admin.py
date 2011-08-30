@@ -54,7 +54,8 @@ def _draft_queryset(db_field, kwargs):
     # see if we need to filter the field's queryset
     model = db_field.rel.to
     if issubclass(model, Publishable):
-        kwargs['queryset'] = model._default_manager.draft()
+        kwargs['queryset'] = model._default_manager.draft() \
+                              .complex_filter(db_field.rel.limit_choices_to)
 
 def attach_filtered_formfields(admin_class):
     # class decorator to add in extra methods that 
