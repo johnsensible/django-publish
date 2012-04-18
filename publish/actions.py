@@ -17,6 +17,7 @@ def _get_change_view_url(app_label, object_name, pk, levels_to_root):
     return '%s%s/%s/%s/' % ('../'*levels_to_root, app_label,
                             object_name, quote(pk)) 
 
+
 def delete_selected(modeladmin, request, queryset):
     # wrap regular django delete_selected to check permissions for each object
     for obj in queryset:
@@ -27,7 +28,7 @@ delete_selected.short_description = "Mark %(verbose_name_plural)s for deletion"
 
 def undelete_selected(modeladmin, request, queryset):
     for obj in queryset:
-        if not modeladmin.has_publish_permission(request, obj):
+        if not modeladmin.has_undelete_permission(request, obj):
             raise PermissionDenied
     for obj in queryset:
         obj.undelete()
