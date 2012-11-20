@@ -4,7 +4,6 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     import unittest
     from django.test import TransactionTestCase
     from django.contrib.admin.sites import AdminSite
-    from django.contrib.admin.filterspecs import FilterSpec
     from django.contrib.auth.models import User
     from django.forms.models import ModelChoiceField, ModelMultipleChoiceField
     from django.conf.urls.defaults import *
@@ -15,13 +14,20 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                                Author, Tag, PageTagOrder, Comment, update_pub_date, \
                                PublishException
                                
-    from publish.admin import PublishableAdmin, PublishableRelatedFilterSpec, \
-                              PublishableStackedInline
+    from publish.admin import PublishableAdmin, PublishableStackedInline
     from publish.actions import publish_selected, delete_selected, \
                                 _convert_all_published_to_html, undelete_selected
     from publish.utils import NestedSet
     from publish.signals import pre_publish, post_publish
     
+    
+    def _get_rendered_content(response):
+        content = getattr(response, 'rendered_content', None)
+        if content is not None:
+            return content
+        return response.content
+
+
     class TestNestedSet(unittest.TestCase):
         
         def setUp(self):
@@ -731,6 +737,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             class PageAdmin(PublishableAdmin):
                 inlines = [PageBlockInline]
 
+            self.admin_site.register(Page, PageAdmin)
             self.page_admin = PageAdmin(Page, self.admin_site)
 
             # override urls, so reverse works
@@ -765,7 +772,9 @@ if getattr(settings, 'TESTING_PUBLISH', False):
         def test_get_actions_global_delete_replaced(self):
             from publish.actions import delete_selected
             
-            request = None
+            class request(object):
+                GET = {}
+
             actions = self.page_admin.get_actions(request)
             
             
@@ -885,7 +894,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             response = self.page_admin.change_view(dummy_request, str(self.page1.id))
             self.failUnless(response is not None)
-            self.failIf('deleted' in response.content)
+            self.failIf('deleted' in _get_rendered_content(response))
         
         def test_change_view_not_deleted(self):
             class dummy_request(object):
@@ -940,7 +949,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
             response = self.page_admin.change_view(dummy_request, str(self.page1.id))
             self.failUnless(response is not None)
-            self.failUnless('deleted' in response.content)
+            self.failUnless('deleted' in _get_rendered_content(response))
 
         def test_change_view_deleted_POST(self):
             class dummy_request(object):
@@ -1022,6 +1031,11 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                         @classmethod
                         def create(cls, message=''):
                             pass
+
+                class _messages(object):
+                    @classmethod
+                    def add(cls, *message):
+                        pass
                     
             
             block = PageBlock.objects.get(id=block.id)
@@ -1091,6 +1105,11 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                         @classmethod
                         def create(cls, message=None):
                             self._message = message
+
+                class _messages(object):
+                    @classmethod
+                    def add(cls, *message):
+                        self._message = message
                     
 
             response = publish_selected(self.page_admin, dummy_request, pages)
@@ -1197,6 +1216,11 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                         @classmethod
                         def create(cls, message=None):
                             pass
+
+                class _messages(object):
+                    @classmethod
+                    def add(cls, *message):
+                        pass
 
             publish_selected(self.page_admin, dummy_request, pages)
 
@@ -1335,35 +1359,6 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.failIfEqual(pub_date, self.page.pub_date)
             self.failUnlessEqual(pub_date, self.page.public.pub_date)
     
-    
-    class TestPublishableRelatedFilterSpec(TransactionTestCase):
-        
-        def test_overridden_spec(self):
-            # make sure the publishable filter spec
-            # gets used when we use a publishable field
-            class dummy_request(object):
-                GET = {}
-            
-            spec = FilterSpec.create(Page._meta.get_field('authors'), dummy_request, {}, Page, PublishableAdmin)
-            self.failUnless(isinstance(spec, PublishableRelatedFilterSpec))
-        
-        def test_only_draft_shown(self):
-            self.author = Author.objects.create(name='author')
-            self.author.publish()
-            
-            self.failUnless(2, Author.objects.count())
-            
-            # make sure the publishable filter spec
-            # gets used when we use a publishable field
-            class dummy_request(object):
-                GET = {}
-            
-            spec = FilterSpec.create(Page._meta.get_field('authors'), dummy_request, {}, Page, PublishableAdmin)
-            
-            lookup_choices = spec.lookup_choices
-            self.failUnlessEqual(1, len(lookup_choices))
-            pk, label = lookup_choices[0]
-            self.failUnlessEqual(self.author.id, pk)
 
     class TestPublishSignals(TransactionTestCase):
         
@@ -1467,4 +1462,39 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.child1.publish()
 
         
+    try:
+        # FilterSpec no longer part of 1.4
+        from django.contrib.admin.filterspecs import FilterSpec
+        from publish.admin import PublishableRelatedFilterSpec
+
+        class TestPublishableRelatedFilterSpec(TransactionTestCase):
+            
+            def test_overridden_spec(self):
+                # make sure the publishable filter spec
+                # gets used when we use a publishable field
+                class dummy_request(object):
+                    GET = {}
+                
+                spec = FilterSpec.create(Page._meta.get_field('authors'), dummy_request, {}, Page, PublishableAdmin)
+                self.failUnless(isinstance(spec, PublishableRelatedFilterSpec))
+            
+            def test_only_draft_shown(self):
+                self.author = Author.objects.create(name='author')
+                self.author.publish()
+                
+                self.failUnless(2, Author.objects.count())
+                
+                # make sure the publishable filter spec
+                # gets used when we use a publishable field
+                class dummy_request(object):
+                    GET = {}
+                
+                spec = FilterSpec.create(Page._meta.get_field('authors'), dummy_request, {}, Page, PublishableAdmin)
+                
+                lookup_choices = spec.lookup_choices
+                self.failUnlessEqual(1, len(lookup_choices))
+                pk, label = lookup_choices[0]
+                self.failUnlessEqual(self.author.id, pk)
+    except ImportError:
+        pass
 

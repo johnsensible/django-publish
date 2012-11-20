@@ -81,6 +81,12 @@ def _check_permissions(modeladmin, all_published, request, perms_needed):
             if not other_modeladmin.has_publish_permission(request, instance):
                 perms_needed.append(instance)
 
+
+def _root_path(admin_site):
+    # root_path attrib not present in Django 1.4
+    return getattr(admin_site, 'root_path', None)
+
+
 def publish_selected(modeladmin, request, queryset):
     opts = modeladmin.model._meta
     app_label = opts.app_label
@@ -118,7 +124,7 @@ def publish_selected(modeladmin, request, queryset):
         "perms_lacking": _to_html(admin_site, perms_needed),
         'queryset': queryset,
         "opts": opts,
-        "root_path": modeladmin.admin_site.root_path,
+        "root_path": _root_path(admin_site),
         "app_label": app_label,
         'action_checkbox_name': helpers.ACTION_CHECKBOX_NAME,
     }
