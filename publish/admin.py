@@ -1,16 +1,11 @@
 from django.contrib import admin
-from django.shortcuts import get_object_or_404, render_to_response
-from django.core.exceptions import PermissionDenied
-from django.contrib.admin.util import unquote
-from django import template
 from django.utils.encoding import force_unicode, smart_unicode
-from django.utils.safestring import mark_safe
-from django.contrib.contenttypes.models import ContentType
 from django.contrib.admin.filterspecs import FilterSpec, RelatedFilterSpec
 from django.forms.models import BaseInlineFormSet
 
 from models import Publishable
 from actions import publish_selected, delete_selected, undelete_selected
+
 
 class PublishableRelatedFilterSpec(RelatedFilterSpec):
     def __init__(self, f, request, params, model, model_admin):
@@ -24,8 +19,10 @@ class PublishableRelatedFilterSpec(RelatedFilterSpec):
             lst = [(x._get_pk_val(), smart_unicode(x)) for x in queryset]
         self.lookup_choices = lst
 
+
 def is_publishable_spec(f):
     return bool(f.rel) and issubclass(f.rel.to, Publishable)
+
 
 def register_filter_spec(test, factory):
     # NB this may need updating for Django 1.2,
@@ -33,7 +30,9 @@ def register_filter_spec(test, factory):
     # RelatedFilterSpec - 1.2 should have a method to do this
     FilterSpec.filter_specs.insert(0, (test, factory))
 
+
 register_filter_spec(is_publishable_spec, PublishableRelatedFilterSpec)
+
 
 def _make_form_readonly(form):
     for field in form.fields.values():
@@ -50,12 +49,14 @@ def _make_adminform_readonly(adminform, inline_admin_formsets):
         for form in admin_formset.formset.forms:
             _make_form_readonly(form)
 
+
 def _draft_queryset(db_field, kwargs):
     # see if we need to filter the field's queryset
     model = db_field.rel.to
     if issubclass(model, Publishable):
         kwargs['queryset'] = model._default_manager.draft() \
                               .complex_filter(db_field.rel.limit_choices_to)
+
 
 def attach_filtered_formfields(admin_class):
     # class decorator to add in extra methods that 
@@ -72,6 +73,7 @@ def attach_filtered_formfields(admin_class):
         return super_formfield_for_manytomany(self, db_field, request, **kwargs)
     admin_class.formfield_for_manytomany = formfield_for_manytomany
     return admin_class
+
 
 class PublishableAdmin(admin.ModelAdmin):
     
@@ -146,6 +148,7 @@ class PublishableAdmin(admin.ModelAdmin):
         
         return super(PublishableAdmin, self).render_change_form(request, context, add, change, form_url, obj)
 
+
 class PublishableBaseInlineFormSet(BaseInlineFormSet):
     # we will actually delete inline objects, rather than
     # just marking them for deletion, as they are like
@@ -158,11 +161,14 @@ class PublishableBaseInlineFormSet(BaseInlineFormSet):
                 obj.delete(mark_for_deletion=False)
         return saved_instances
 
+
 class PublishableStackedInline(admin.StackedInline):
     formset = PublishableBaseInlineFormSet
 
+
 class PublishableTabularInline(admin.TabularInline):
     formset = PublishableBaseInlineFormSet
+
 
 # add in extra methods
 for admin_class in [PublishableAdmin, PublishableStackedInline, PublishableTabularInline]:
