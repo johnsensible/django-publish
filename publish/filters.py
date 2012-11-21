@@ -35,5 +35,6 @@ class PublishableRelatedFieldListFilter(RelatedFieldListFilter):
         self.lookup_choices = lst
 
 
-FieldListFilter.register(is_publishable_filter, PublishableRelatedFieldListFilter, take_priority=True)
+def register_filters():
+    FieldListFilter.register(is_publishable_filter, PublishableRelatedFieldListFilter, take_priority=True)
 

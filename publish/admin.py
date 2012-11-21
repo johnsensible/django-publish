@@ -5,7 +5,8 @@ from django.utils.encoding import force_unicode
 from .models import Publishable
 from .actions import publish_selected, delete_selected, undelete_selected
 
-import publish.filters
+from publish.filters import register_filters
+register_filters()
 
 
 def _make_form_readonly(form):

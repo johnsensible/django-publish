@@ -19,7 +19,8 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                                 _convert_all_published_to_html, undelete_selected
     from publish.utils import NestedSet
     from publish.signals import pre_publish, post_publish
-    
+    from publish.filters import PublishableRelatedFieldListFilter
+
     
     def _get_rendered_content(response):
         content = getattr(response, 'rendered_content', None)
@@ -1463,38 +1464,42 @@ if getattr(settings, 'TESTING_PUBLISH', False):
 
         
     try:
-        # FilterSpec no longer part of 1.4
-        from django.contrib.admin.filterspecs import FilterSpec
-        from publish.admin import PublishableRelatedFilterSpec
-
-        class TestPublishableRelatedFilterSpec(TransactionTestCase):
-            
-            def test_overridden_spec(self):
-                # make sure the publishable filter spec
-                # gets used when we use a publishable field
-                class dummy_request(object):
-                    GET = {}
-                
-                spec = FilterSpec.create(Page._meta.get_field('authors'), dummy_request, {}, Page, PublishableAdmin)
-                self.failUnless(isinstance(spec, PublishableRelatedFilterSpec))
-            
-            def test_only_draft_shown(self):
-                self.author = Author.objects.create(name='author')
-                self.author.publish()
-                
-                self.failUnless(2, Author.objects.count())
-                
-                # make sure the publishable filter spec
-                # gets used when we use a publishable field
-                class dummy_request(object):
-                    GET = {}
-                
-                spec = FilterSpec.create(Page._meta.get_field('authors'), dummy_request, {}, Page, PublishableAdmin)
-                
-                lookup_choices = spec.lookup_choices
-                self.failUnlessEqual(1, len(lookup_choices))
-                pk, label = lookup_choices[0]
-                self.failUnlessEqual(self.author.id, pk)
+        from django.contrib.admin.filters import FieldListFilter
     except ImportError:
-        pass
+        # pre 1.4
+        from django.contrib.admin.filterspecs import FilterSpec
+        class FieldListFilter(object):
+            @classmethod
+            def create(cls, field, request, params, model, model_admin, *arg, **kw):
+                return FilterSpec.create(field, request, params, model, model_admin)
+
+
+    class TestPublishableRelatedFilterSpec(TransactionTestCase):
+        
+        def test_overridden_spec(self):
+            # make sure the publishable filter spec
+            # gets used when we use a publishable field
+            class dummy_request(object):
+                GET = {}
+            
+            spec = FieldListFilter.create(Page._meta.get_field('authors'), dummy_request, {}, Page, PublishableAdmin, None)
+            self.failUnless(isinstance(spec, PublishableRelatedFieldListFilter))
+        
+        def test_only_draft_shown(self):
+            self.author = Author.objects.create(name='author')
+            self.author.publish()
+            
+            self.failUnless(2, Author.objects.count())
+            
+            # make sure the publishable filter spec
+            # gets used when we use a publishable field
+            class dummy_request(object):
+                GET = {}
+            
+            spec = FieldListFilter.create(Page._meta.get_field('authors'), dummy_request, {}, Page, PublishableAdmin, None)
+            
+            lookup_choices = spec.lookup_choices
+            self.failUnlessEqual(1, len(lookup_choices))
+            pk, label = lookup_choices[0]
+            self.failUnlessEqual(self.author.id, pk)
 
