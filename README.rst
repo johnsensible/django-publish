@@ -106,6 +106,26 @@ The classes ``PublishableStackedInline`` and ``PublishableTabularInline`` are al
     
     admin.site.register(MyModel, MyModelAdmin)
 
+You'll also need to add a ``PublishMeta`` field to the parent model, so that it will also publish the child models whenever it is published:
+
+::
+
+    from django.db import models
+    from publish.models import Publishable
+    
+    class MyModel(Publishable): # extends from Publishable instead of models.Model
+        title = models.CharField(max_length=100)
+        
+        class Meta(Publish.Meta): # note you should extend from Publish.Meta
+            ordering = ["title"]
+
+        class PublishMeta(Publishable.PublishMeta):
+            publish_reverse_fields = ['mychildmodel_set'] # name of reverse relation
+    
+
+    class MyChild(Publishable):
+        mymodel = models.ForeignKey(MyModel)
+
 
 Signals
 =======
