@@ -89,6 +89,24 @@ The latter form is handy, as the ``Q`` object can be passed in as a paramter to 
 
 In addition to modifying your views, you may want to consider changing any ``get_absolute_url`` functions to correctly return the relevant URL for viewing the object - taking into account whether it is a published or draft object (using the ``is_public`` field).  The ``PublishableAdmin`` class automatically provides a link to the published (View on site) and draft (Preview on site) versions if a model has implemented ``get_absolute_url``.
 
+The classes ``PublishableStackedInline`` and ``PublishableTabularInline`` are also available for handling inline editing of ``Publishable`` child models.
+
+::
+
+    from django.contrib import admin
+    from publish.admin import PublishableAdmin, PublishableTabularInline
+    
+    from models import MyModel, MyChildModel
+    
+    class MyChildModelInline(PublishableTabularInline):
+        model = MyChildModel
+
+    class MyModelAdmin(PublishableAdmin):
+        inlines = [ MyChildModelInline ]
+    
+    admin.site.register(MyModel, MyModelAdmin)
+
+
 Signals
 =======
 
