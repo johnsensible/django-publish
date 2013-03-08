@@ -11,7 +11,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     from django.http import Http404
     
     from publish.models import Publishable, FlatPage, Site, Page, PageBlock, \
-                               Author, Tag, PageTagOrder, Comment, update_pub_date, \
+                               Author, AuthorProfile, Tag, PageTagOrder, Comment, update_pub_date, \
                                PublishException
                                
     from publish.admin import PublishableAdmin, PublishableStackedInline

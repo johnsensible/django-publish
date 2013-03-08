@@ -323,7 +323,7 @@ class Publishable(models.Model):
                 public_m2m_manager.remove(*old_objs)
                 public_m2m_manager.add(*public_objs)
 
-        # one-to-many reverse relations
+        # one-to-many and one-to-one reverse relations
         for obj in self._meta.get_all_related_objects():
             if issubclass(obj.model, Publishable):
                 name = obj.get_accessor_name()
@@ -333,16 +333,21 @@ class Publishable(models.Model):
                     continue
                 if obj.field.rel.multiple:
                     related_items = getattr(self, name).all()
-                    for related_item in related_items:
-                        related_item.publish(dry_run=dry_run, all_published=all_published, parent=self)
-                    
-                    # make sure we tidy up anything that needs deleting
-                    if self.public and not dry_run:
-                        public_ids = related_items.values('public_id')
+                else:
+                    try:
+                        related_items = [getattr(self, name)]
+                    except obj.model.DoesNotExist:
+                        related_items = []
+
+                for related_item in related_items:
+                    related_item.publish(dry_run=dry_run, all_published=all_published, parent=self)
+                
+                # make sure we tidy up anything that needs deleting
+                if self.public and not dry_run:
+                    if obj.field.rel.multiple:
+                        public_ids = [r.public_id for r in related_items]
                         deleted_items = getattr(self.public, name).exclude(pk__in=public_ids)
                         deleted_items.delete(mark_for_deletion=False)
-                    #    for deleted_item in deleted_items:
-                    #        deleted_item.publish_deletions(dry_run=dry_run, all_published=all_published, parent=self)
         
         self._post_publish(dry_run, all_published)
 
@@ -415,6 +420,13 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     class Author(Publishable):
         name = models.CharField(max_length=100)
         profile = models.TextField(blank=True)
+
+        class PublishMeta(Publishable.PublishMeta):
+            publish_reverse_fields = ['authorprofile']
+    
+    class AuthorProfile(Publishable):
+        author = models.OneToOneField(Author)
+        extra_profile = models.TextField(blank=True)
 
     class ChangeLog(models.Model):
         changed = models.DateTimeField(db_index=True, auto_now_add=True)
