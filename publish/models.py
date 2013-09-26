@@ -156,7 +156,9 @@ class Publishable(models.Model):
 
     def get_public_absolute_url(self):
         if self.public:
-            return self.public.get_absolute_url()
+            get_absolute_url = getattr(self.public, 'get_absolute_url', None)
+            if get_absolute_url:
+                return get_absolute_url()
         return None
 
     def save(self, mark_changed=True, *arg, **kw):
