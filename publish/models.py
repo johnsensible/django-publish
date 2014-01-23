@@ -17,6 +17,9 @@ from signals import pre_publish, post_publish
 class PublishException(Exception):
     pass
 
+class UnpublishException(Exception):
+    pass
+
 class PublishableQuerySet(QuerySet):
 
     def changed(self):
@@ -212,7 +215,22 @@ class Publishable(models.Model):
             return None
         else:
             return self.publish_changes(dry_run=dry_run, all_published=all_published, parent=parent)
-        
+
+    def unpublish(self, dry_run=False):
+        '''
+        unpublish models by deleting public model
+        '''
+        if self.is_public:
+            raise UnpublishException("Cannot unpublish a public model - unpublish should be called from draft model")
+        if self.pk is None:
+            raise UnpublishException("Please save the model before unpublishing")
+
+        public_model = self.public
+
+        if not dry_run:
+            public_model.delete(mark_for_deletion=False)
+        return public_model
+
     def _get_public_or_publish(self, *arg, **kw):
         # only publish if we don't yet have an id for the
         # public model

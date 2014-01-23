@@ -12,7 +12,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
     
     from publish.models import Publishable, FlatPage, Site, Page, PageBlock, \
                                Author, AuthorProfile, Tag, PageTagOrder, Comment, update_pub_date, \
-                               PublishException
+                               PublishException, UnpublishException
                                
     from publish.admin import PublishableAdmin, PublishableStackedInline
     from publish.actions import publish_selected, delete_selected, \
@@ -243,6 +243,40 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             self.flat_page.publish(all_published=all_published)
             self.failUnlessEqual(set([self.flat_page, public]), set(FlatPage.objects.all()))
+
+
+    class TestBasicUnpublishable(TransactionTestCase):
+
+        def setUp(self):
+            super(TestBasicUnpublishable, self).setUp()
+            self.flat_page = FlatPage(url='/my-page', title='my page',
+                                      content='here is some content',
+                                      enable_comments=False,
+                                      registration_required=True)
+
+        def test_unpublish_dry_run(self):
+            with self.assertRaises(UnpublishException) as ue:
+                self.flat_page.unpublish(dry_run=True)
+
+            self.flat_page.save()
+
+            with self.assertRaises(UnpublishException) as ue:
+                self.flat_page.is_public = True
+                self.flat_page.unpublish(dry_run=True)
+
+            self.flat_page.is_public = False
+            self.flat_page.publish()
+            self.failUnlessEqual(self.flat_page.unpublish(dry_run=True), self.flat_page.public)
+
+        def test_unpublish(self):
+            self.flat_page.save()
+            published_page = self.flat_page.publish()
+
+            self.assertTrue(published_page.pk != None)
+            self.assertTrue(published_page.is_public)
+
+            self.failUnlessEqual(self.flat_page.unpublish(dry_run=False), self.flat_page.public)
+            self.failUnlessEqual(None, published_page.pk)
 
 
     class TestPublishableManager(TransactionTestCase):
