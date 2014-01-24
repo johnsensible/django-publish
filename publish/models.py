@@ -227,7 +227,9 @@ class Publishable(models.Model):
 
         public_model = self.public
 
-        if not dry_run:
+        if public_model and not dry_run:
+            self.public = None
+            self.save()
             public_model.delete(mark_for_deletion=False)
         return public_model
 

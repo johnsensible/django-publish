@@ -272,11 +272,17 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             self.flat_page.save()
             published_page = self.flat_page.publish()
 
-            self.assertTrue(published_page.pk != None)
-            self.assertTrue(published_page.is_public)
+            _draft_page = FlatPage.objects.get(pk=self.flat_page.pk)
+            _published_page = FlatPage.objects.get(pk=published_page.pk)
 
-            self.failUnlessEqual(self.flat_page.unpublish(dry_run=False), self.flat_page.public)
-            self.failUnlessEqual(None, published_page.pk)
+            self.failUnlessEqual(_draft_page.public.pk, _published_page.pk)
+
+            _draft_page.unpublish()
+
+            _published_page = FlatPage.objects.filter(pk=published_page.pk)
+            self.failUnlessEqual(0, len(_published_page))
+            self.failUnlessEqual(None, _draft_page.public)
+            self.failUnlessEqual(Publishable.PUBLISH_CHANGED, _draft_page.publish_state)
 
 
     class TestPublishableManager(TransactionTestCase):

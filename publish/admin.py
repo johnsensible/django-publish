@@ -3,7 +3,7 @@ from django.forms.models import BaseInlineFormSet
 from django.utils.encoding import force_unicode 
 
 from .models import Publishable
-from .actions import publish_selected, delete_selected, undelete_selected
+from .actions import publish_selected, unpublish_selected, delete_selected, undelete_selected
 
 from publish.filters import register_filters
 register_filters()
@@ -52,9 +52,10 @@ def attach_filtered_formfields(admin_class):
 
 class PublishableAdmin(admin.ModelAdmin):
     
-    actions = [publish_selected, delete_selected, undelete_selected]
+    actions = [publish_selected, unpublish_selected, delete_selected, undelete_selected]
     change_form_template = 'admin/publish_change_form.html'
     publish_confirmation_template = None
+    unpublish_confirmation_template = None
     deleted_form_template = None
     
     list_display = ['__unicode__', 'publish_state']
@@ -94,21 +95,21 @@ class PublishableAdmin(admin.ModelAdmin):
     def has_publish_permission(self, request, obj=None):
         opts = self.opts
         return request.user.has_perm(opts.app_label + '.' + opts.get_publish_permission())
-    
+
     def get_publish_status_display(self, obj):
         state = obj.get_publish_state_display()
         if not obj.is_public and not obj.public:
             state = '%s - not yet published' % state
         return state
 
-    def log_publication(self, request, object):
+    def log_publication(self, request, object, message="Published"):
         # only log objects that we should
         if isinstance(object, Publishable):
             model = object.__class__
             other_modeladmin = self.admin_site._registry.get(model, None)
-            if other_modeladmin: 
+            if other_modeladmin:
                 # just log as a change
-                self.log_change(request, object, 'Published')
+                self.log_change(request, object, message)
 
     def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
         context['has_publish_permission'] = self.has_publish_permission(request, obj)
