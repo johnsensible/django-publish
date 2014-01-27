@@ -15,7 +15,7 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                                PublishException, UnpublishException
                                
     from publish.admin import PublishableAdmin, PublishableStackedInline
-    from publish.actions import publish_selected, delete_selected, \
+    from publish.actions import publish_selected, unpublish_selected, delete_selected, \
                                 _convert_all_published_to_html, undelete_selected
     from publish.utils import NestedSet
     from publish.signals import pre_publish, post_publish
@@ -1271,6 +1271,86 @@ if getattr(settings, 'TESTING_PUBLISH', False):
             
             content_type_id = ContentType.objects.get_for_model(self.fp1).pk
             self.failUnlessEqual(2, LogEntry.objects.filter().count())
+
+
+    class TestUnpublishSelectedAction(TransactionTestCase):
+
+        def setUp(self):
+            super(TestUnpublishSelectedAction, self).setUp()
+
+            self.fp1 = Page.objects.create(slug='fp1', title='FP1')
+            self.fp2 = Page.objects.create(slug='fp2', title='FP2')
+            self.fp3 = Page.objects.create(slug='fp3', title='FP3')
+
+            self.fp1.save()
+            self.fp2.save()
+            self.fp3.save()
+
+            for page in Page.objects.draft():
+                page.publish()
+
+            self.admin_site = AdminSite('Test Admin')
+            self.page_admin = PublishableAdmin(Page, self.admin_site)
+
+            # override urls, so reverse works
+            settings.ROOT_URLCONF=patterns('',
+                ('^admin/', include(self.admin_site.urls)),
+            )
+
+        def test_unpublish_selected_confirm(self):
+            pages = Page.objects.draft()
+
+            class dummy_request(object):
+                META = {}
+                POST = {}
+
+                class user(object):
+                    @classmethod
+                    def has_perm(cls, *arg):
+                        return True
+
+                    @classmethod
+                    def get_and_delete_messages(cls):
+                        return []
+
+            response = unpublish_selected(self.page_admin, dummy_request, pages)
+
+            self.failIf(Page.objects.draft().count() != 3)
+            self.failUnless(response is not None)
+            self.failUnlessEqual(200, response.status_code)
+
+
+        def test_publish_selected_confirmed(self):
+            pages = Page.objects.draft()
+
+            class dummy_request(object):
+                POST = {'post': True}
+
+                class user(object):
+                    @classmethod
+                    def is_authenticated(cls):
+                        return True
+
+                    @classmethod
+                    def has_perm(cls, *arg):
+                        return True
+
+                    class message_set(object):
+                        @classmethod
+                        def create(cls, message=None):
+                            self._message = message
+
+                class _messages(object):
+                    @classmethod
+                    def add(cls, *message):
+                        self._message = message
+
+            response = unpublish_selected(self.page_admin, dummy_request, pages)
+
+            self.failUnlessEqual(0, Page.objects.published().count())
+            self.failUnlessEqual(3, Page.objects.draft().count())
+            self.failUnless( getattr(self, '_message', None) is not None )
+            self.failUnless( response is None )
 
 
     class TestDeleteSelected(TransactionTestCase):
