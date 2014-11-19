@@ -23,7 +23,7 @@
         </ul>
     {% endif %}
     {% if protected %}
-        <p>{% blocktrans %}Unpublishing the selected {{ objects_name }} would require unpublishing the following protected related objects:{% endblocktrans %}</p>
+    <p>{% blocktrans %}Unpublishing the selected {{ objects_name }} would require unpublishing the following protected related objects (other objects have a dependency that would be broken):{% endblocktrans %}</p>
         <ul>
         {% for obj in protected %}
             <li>{{ obj }}</li>

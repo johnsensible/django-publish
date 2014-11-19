@@ -114,7 +114,8 @@ class Publishable(models.Model):
 
     is_public = models.BooleanField(default=False, editable=False, db_index=True)
     publish_state = models.IntegerField('Publication status', editable=False, db_index=True, choices=PUBLISH_CHOICES, default=PUBLISH_DEFAULT)
-    public = models.OneToOneField('self', related_name='draft', null=True, editable=False)
+    public = models.OneToOneField('self', related_name='draft', null=True,
+            editable=False, on_delete=models.PROTECT)
     
     class Meta:
         abstract = True

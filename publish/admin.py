@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.forms.models import BaseInlineFormSet
 from django.utils.encoding import force_unicode 
+from django.http import Http404, HttpResponseRedirect
+from django.core.exceptions import ValidationError
+from django.core.urlresolvers import reverse as reverse_url
 
 from .models import Publishable
 from .actions import publish_selected, unpublish_selected, delete_selected, undelete_selected
@@ -110,6 +113,31 @@ class PublishableAdmin(admin.ModelAdmin):
             if other_modeladmin:
                 # just log as a change
                 self.log_change(request, object, message)
+    
+    def get_object_by_public_id(self, request, public_id):
+        queryset = self.queryset(request)
+        model = queryset.model
+        try:
+            public_id = model._meta.pk.to_python(public_id)
+            return queryset.get(public_id=public_id)
+        except (model.DoesNotExist, ValidationError):
+            return None
+
+    def _edit_url(self, obj):
+        opts = obj._meta
+        app_label = opts.app_label
+        name = opts.module_name
+        url_name = 'admin:%s_%s_change' % (app_label, name)
+        return reverse_url(url_name, args=(obj.pk,))
+
+    def change_view(self, request, object_id, *arg, **kw):
+        try:
+            return super(PublishableAdmin, self).change_view(request, object_id, *arg, **kw)
+        except Http404 as http404:
+            obj = self.get_object_by_public_id(request, object_id)
+            if obj:
+                return HttpResponseRedirect(self._edit_url(obj))
+            raise http404
 
     def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
         context['has_publish_permission'] = self.has_publish_permission(request, obj)
