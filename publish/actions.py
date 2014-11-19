@@ -1,8 +1,10 @@
 from django import template
 from django.core.exceptions import PermissionDenied
 from django.contrib.admin import helpers
-from django.contrib.admin.util import quote, model_ngettext
+from django.contrib.admin.util import quote, model_ngettext, get_deleted_objects
+from django.db import router
 from django.shortcuts import render_to_response
+from django.template.response import TemplateResponse
 from django.utils.encoding import force_unicode
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
@@ -137,4 +139,71 @@ def publish_selected(modeladmin, request, queryset):
     ], context, context_instance=template.RequestContext(request))
 
 
+def unpublish_selected(modeladmin, request, queryset):
+    opts = modeladmin.model._meta
+    app_label = opts.app_label
+
+    all_unpublished = []
+    for obj in queryset:
+        obj_public = obj.unpublish(dry_run=True)
+        if obj_public:
+            all_unpublished.append(obj_public)
+
+    perms_needed = []
+    _check_permissions(modeladmin, all_unpublished, request, perms_needed)
+
+    using = router.db_for_write(modeladmin.model)
+
+    # Populate unpublishable_objects, a data structure of all related objects that
+    # will also be deleted.
+    unpublishable_objects, _perms_needed, protected = get_deleted_objects(
+        all_unpublished, opts, request.user, modeladmin.admin_site, using)
+
+    if request.POST.get('post'):
+        if perms_needed:
+            raise PermissionDenied
+
+        n = len(all_unpublished)
+        if n:
+            for obj in queryset:
+                obj_public = obj.unpublish()
+                if obj_public:
+                    modeladmin.log_publication(request, object, message="Unpublished")
+            modeladmin.message_user(request, _("Successfully unpublished %(count)d %(items)s.") % {
+                "count": n, "items": model_ngettext(modeladmin.opts, n)
+            })
+            # Return None to display the change list page again.
+            return None
+
+    if len(all_unpublished) == 1:
+        objects_name = force_unicode(opts.verbose_name)
+    else:
+        objects_name = force_unicode(opts.verbose_name_plural)
+
+    if perms_needed or protected:
+        title = _("Cannot unpublish %(name)s") % {"name": objects_name}
+    else:
+        title = _("Are you sure?")
+
+    context = {
+        "title": title,
+        "objects_name": objects_name,
+        "unpublishable_objects": [unpublishable_objects],
+        'queryset': queryset,
+        "perms_lacking": perms_needed,
+        "protected": protected,
+        "opts": opts,
+        "app_label": app_label,
+        'action_checkbox_name': helpers.ACTION_CHECKBOX_NAME,
+    }
+
+    # Display the confirmation page
+    return TemplateResponse(request, modeladmin.unpublish_confirmation_template or [
+        "admin/%s/%s/unpublish_selected_confirmation.html" % (app_label, opts.object_name.lower()),
+        "admin/%s/unpublish_selected_confirmation.html" % app_label,
+        "admin/unpublish_selected_confirmation.html"
+    ], context, current_app=modeladmin.admin_site.name)
+
+
 publish_selected.short_description = "Publish selected %(verbose_name_plural)s"
+unpublish_selected.short_description = "Unpublish selected %(verbose_name_plural)s"

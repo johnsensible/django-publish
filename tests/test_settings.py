@@ -3,6 +3,8 @@ TEMPLATE_DEBUG = DEBUG
 DATABASE_ENGINE = 'sqlite3'
 DATABASE_NAME = ':memory:'
 
+SECRET_KEY = '1234567890'
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
@@ -11,6 +13,8 @@ DATABASES = {
         'PASSWORD': '',                  # Not used with sqlite3.
     }
 }
+
+STATIC_URL = '/static/'
 
 import django
 
@@ -31,6 +35,7 @@ else:
         'django.contrib.contenttypes',
         'django.contrib.admin',
         'django.contrib.auth',
+        'django.contrib.staticfiles',
         'publish',
     )
 
