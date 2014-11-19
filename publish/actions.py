@@ -90,6 +90,7 @@ def _root_path(admin_site):
 
 
 def publish_selected(modeladmin, request, queryset):
+    queryset = queryset.select_for_update()
     opts = modeladmin.model._meta
     app_label = opts.app_label
     
@@ -140,6 +141,8 @@ def publish_selected(modeladmin, request, queryset):
 
 
 def unpublish_selected(modeladmin, request, queryset):
+    queryset = queryset.select_for_update()
+
     opts = modeladmin.model._meta
     app_label = opts.app_label
 

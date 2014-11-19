@@ -115,7 +115,7 @@ class Publishable(models.Model):
     is_public = models.BooleanField(default=False, editable=False, db_index=True)
     publish_state = models.IntegerField('Publication status', editable=False, db_index=True, choices=PUBLISH_CHOICES, default=PUBLISH_DEFAULT)
     public = models.OneToOneField('self', related_name='draft', null=True,
-            editable=False, on_delete=models.PROTECT)
+            editable=False, on_delete=models.SET_NULL)
     
     class Meta:
         abstract = True
@@ -254,6 +254,9 @@ class Publishable(models.Model):
                 return field_object.rel.through_model
             return through
         return None
+    
+    def _changes_need_publishing(self):
+        return self.publish_state == Publishable.PUBLISH_CHANGED or not self.public
 
     def publish_changes(self, dry_run=False, all_published=None, parent=None):
         '''
@@ -285,7 +288,7 @@ class Publishable(models.Model):
         excluded_fields = self.PublishMeta.excluded_fields()
         reverse_fields_to_publish = self.PublishMeta.reverse_fields_to_publish()
         
-        if self.publish_state == Publishable.PUBLISH_CHANGED:
+        if self._changes_need_publishing():
             # copy over regular fields
             for field in self._meta.fields:
                 if field.name in excluded_fields:
