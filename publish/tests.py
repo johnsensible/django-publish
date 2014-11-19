@@ -956,11 +956,11 @@ if getattr(settings, 'TESTING_PUBLISH', False):
                     def has_perm(cls, permission):
                         return True
             
-            try:
-                self.page_admin.change_view(dummy_request, unicode(self.page1.public.id))
-                self.fail()
-            except Http404:
-                pass
+            response = self.page_admin.change_view(dummy_request, unicode(self.page1.public.id))
+            # should be redirecting to the draft version
+            self.failUnless(response is not None)
+            self.assertEquals(302, response.status_code)
+            self.assertEquals('/admin/publish/page/%d/' % self.page1.id, response['Location'])
 
         def test_change_view_deleted(self):
             class dummy_request(object):
